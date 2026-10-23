@@ -1,6 +1,6 @@
-# FollowFree X — X 回关/取关助手
+# FollowFree 𝕏 — X 回关/取关助手
 
-[![Version](https://img.shields.io/badge/version-v1.0.5-gold.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v1.0.6-gold.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg)](LICENSE)
 
 一个免费、开源的 Chrome 扩展（Manifest V3），用来管理 X（Twitter）的关注关系：批量回关粉丝、清理正在关注里未回关或无蓝 V 的账号。
@@ -17,7 +17,7 @@
 - 每个回关动作后用只读接口复核一次关系是否真的建立，未确认的不重复发送
 - 扫描上限可调（1–500 人），本轮最多回关人数可调
 
-<img src="screenshots/follow-panel.png" width="380" alt="FollowFree X 回关粉丝面板（演示数据）">
+<img src="screenshots/follow-panel.png" width="380" alt="FollowFree 𝕏 回关粉丝面板（演示数据）">
 
 ### 取关清理
 
@@ -30,7 +30,7 @@
 - 名单可导出 CSV（用户名 + 命中原因），先看名单再决定动不动手
 - 批量取关，逐个执行、逐个记录结果
 
-<img src="screenshots/unfollow-panel.png" width="380" alt="FollowFree X 取关清理面板（演示数据）">
+<img src="screenshots/unfollow-panel.png" width="380" alt="FollowFree 𝕏 取关清理面板（演示数据）">
 
 ### 节奏与防误操作
 
@@ -53,7 +53,7 @@
 1. 下载本仓库并解压（或 `git clone`），得到包含 `manifest.json` 的文件夹
 2. Chrome 打开 `chrome://extensions`，开启右上角「开发者模式」
 3. 点击「加载已解压的扩展程序」，选择该文件夹
-4. 登录 x.com，点击浏览器工具栏的 FollowFree X 图标打开面板
+4. 登录 x.com，点击浏览器工具栏的 FollowFree 𝕏 图标打开面板
 
 ## 使用
 
@@ -79,9 +79,9 @@
 
 ## 版本说明
 
-当前版本：**v1.0.5**（2026-10-23）。
+当前版本：**v1.0.6**（2026-10-23）。
 
-v1.0.5 完成项目更名与图标交付修复：新名称 FollowFree X，安装包改用带版本号的文件名；功能与 v1.0.4 相同。完整历史见 [CHANGELOG.md](CHANGELOG.md)。
+v1.0.6 把品牌名中的字母 X 改为 𝕏 字符（FollowFree 𝕏），功能与 v1.0.5 相同。完整历史见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## License
 

@@ -1,7 +1,7 @@
 {
   "action": {
     "default_popup": "popup.html",
-    "default_title": "FollowFree X"
+    "default_title": "FollowFree 𝕏"
   },
   "content_scripts": [
     {
@@ -27,9 +27,9 @@
     "48": "icons/icon48.png"
   },
   "manifest_version": 3,
-  "name": "FollowFree X — 回关/取关助手",
+  "name": "FollowFree 𝕏 — 回关/取关助手",
   "permissions": [
     "storage"
   ],
-  "version": "1.0.5"
+  "version": "1.0.6"
 }
