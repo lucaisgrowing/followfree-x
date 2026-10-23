@@ -1,0 +1,330 @@
+(() => {
+  if (globalThis.__freeWallLoaded) return;
+  globalThis.__freeWallLoaded = true;
+
+  // X 网页端公开 Bearer（所有网页访客共用，非任何人的私钥）
+  const X_WEB_BEARER = 'AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
+  const RECENT_UNFOLLOW_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+  const S = {
+    running: false,
+    stopRequested: false,
+    stopSignalSeen: 0,
+  };
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const cookie = (name) => (document.cookie.split(';').map((x) => x.trim()).find((x) => x.startsWith(name + '=')) || '').slice(name.length + 1);
+
+  function myUserId() {
+    try {
+      const twid = decodeURIComponent(cookie('twid') || '');
+      const m = twid.match(/u=(\d+)/);
+      return m ? m[1] : '';
+    } catch { return ''; }
+  }
+  function myUsername() {
+    const link = document.querySelector('[data-testid="AppTabBar_Profile_Link"]');
+    const href = link && link.getAttribute('href');
+    if (href && /^\/[A-Za-z0-9_]+$/.test(href)) return href.slice(1);
+    const m = location.pathname.match(/^\/([A-Za-z0-9_]+)\/(verified_followers|followers|following)/);
+    return m ? m[1] : '';
+  }
+
+  async function storeGet(keys) { return chrome.storage.local.get(keys); }
+  async function storeSet(obj) { return chrome.storage.local.set(obj); }
+
+  let progress = null;
+  async function setProgress(patch) {
+    progress = { ...(progress || {}), ...patch, updatedAt: Date.now() };
+    await storeSet({ freeWallProgress: progress });
+  }
+  async function logLine(text) {
+    const log = [...((progress && progress.log) || []), `[${new Date().toLocaleTimeString()}] ${text}`].slice(-60);
+    await setProgress({ log });
+  }
+
+  async function checkStop() {
+    if (S.stopRequested) return true;
+    const { freeWallStopSignal } = await storeGet('freeWallStopSignal');
+    if (freeWallStopSignal && freeWallStopSignal !== S.stopSignalSeen) {
+      S.stopSignalSeen = freeWallStopSignal;
+      S.stopRequested = true;
+      return true;
+    }
+    return false;
+  }
+
+  function xFetch(path, options = {}) {
+    return fetch(`https://x.com/i/api/1.1/${path}`, {
+      credentials: 'include',
+      ...options,
+      headers: {
+        authorization: 'Bearer ' + X_WEB_BEARER,
+        'x-csrf-token': cookie('ct0'),
+        'x-twitter-auth-type': 'OAuth2Session',
+        'x-twitter-active-user': 'yes',
+        'content-type': 'application/x-www-form-urlencoded',
+        ...(options.headers || {}),
+      },
+    });
+  }
+
+  async function friendshipsCreate(userId) {
+    const body = new URLSearchParams({ user_id: userId, follow: 'true' });
+    const res = await xFetch('friendships/create.json', { method: 'POST', body });
+    return parseXResponse(res);
+  }
+  async function friendshipsDestroy(userId) {
+    const body = new URLSearchParams({ user_id: userId });
+    const res = await xFetch('friendships/destroy.json', { method: 'POST', body });
+    return parseXResponse(res);
+  }
+  async function friendshipsShow(sourceId, targetId) {
+    const res = await xFetch(`friendships/show.json?source_id=${encodeURIComponent(sourceId)}&target_id=${encodeURIComponent(targetId)}`);
+    if (!res.ok) return null;
+    try { return await res.json(); } catch { return null; }
+  }
+  async function parseXResponse(res) {
+    let data = null;
+    try { data = await res.json(); } catch { /* empty */ }
+    if (res.ok) return { ok: true, data };
+    const errs = (data && data.errors) || [];
+    const code = errs[0] && errs[0].code;
+    const rateLimited = res.status === 429 || code === 88 || code === 185 || code === 344;
+    return { ok: false, status: res.status, code, message: (errs[0] && errs[0].message) || `HTTP ${res.status}`, rateLimited };
+  }
+
+  function parseRow(row) {
+    const links = row.querySelectorAll('a[href^="/"]');
+    let username = '';
+    for (const a of links) {
+      const href = a.getAttribute('href') || '';
+      const m = href.match(/^\/([A-Za-z0-9_]{1,15})$/);
+      if (m && !['home', 'explore', 'notifications', 'messages', 'search'].includes(m[1])) { username = m[1]; break; }
+    }
+    if (!username) return null;
+    const btn = row.querySelector('[data-testid$="-follow"], [data-testid$="-following"], [data-testid$="-unfollow"]');
+    const testid = btn ? btn.getAttribute('data-testid') : '';
+    const userId = testid ? testid.split('-')[0] : '';
+    const state = testid.endsWith('-following') ? 'following' : testid.endsWith('-unfollow') ? 'following' : testid.endsWith('-follow') ? 'not-following' : '';
+    const verified = !!row.querySelector('[data-testid="icon-verified"]');
+    // “回关”徽标是独立小标签：只认元素全文精确等于徽标文案，避免被简介里的字眼误伤
+    const FOLLOW_YOU_LABELS = new Set(['Follows you', '关注你', '关注了你', '關注你', '關注了你', '跟隨你', 'Te sigue', 'Se abona a ti']);
+    let followsYou = false;
+    for (const el of row.querySelectorAll('span, div')) {
+      if (FOLLOW_YOU_LABELS.has((el.textContent || '').trim())) { followsYou = true; break; }
+    }
+    return { username, userId, state, verified, followsYou };
+  }
+
+  async function scanList({ limit, onCandidate }) {
+    const seen = new Map();
+    let stall = 0;
+    let lastCount = -1;
+    while (seen.size < limit) {
+      if (await checkStop()) break;
+      const rows = document.querySelectorAll('[data-testid="UserCell"]');
+      for (const row of rows) {
+        const rec = parseRow(row);
+        if (!rec || seen.has(rec.username.toLowerCase())) continue;
+        seen.set(rec.username.toLowerCase(), rec);
+        if (seen.size <= 3) {
+          await logLine(`样本${seen.size}：@${rec.username} id=${rec.userId || '未读到'} 状态=${rec.state || '未知'} 蓝V=${rec.verified} 回关我=${rec.followsYou}`);
+        }
+        if (onCandidate) await onCandidate(rec, seen.size);
+        if (seen.size >= limit) break;
+      }
+      if (seen.size === lastCount) stall += 1; else stall = 0;
+      lastCount = seen.size;
+      if (stall >= 8) break; // 连续 8 次滚动无新增 = 到底
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      await sleep(1500);
+    }
+    return [...seen.values()];
+  }
+
+  async function waitForWindowSlot(kind, maxPerWindow) {
+    while (true) {
+      if (await checkStop()) return false;
+      const key = kind === 'follow' ? 'freeWallFollowWindow' : 'freeWallUnfollowWindow';
+      const data = await storeGet(key);
+      const now = Date.now();
+      const win = (data[key] || []).filter((t) => now - t < 15 * 60 * 1000);
+      if (win.length < maxPerWindow) return true;
+      const waitMs = Math.min(win[0] + 15 * 60 * 1000 - now + 1000, 60000);
+      await logLine(`已达 ${maxPerWindow} 次/15分钟 上限，等 ${Math.ceil(waitMs / 1000)} 秒滑出窗口…`);
+      await sleep(Math.max(waitMs, 5000));
+    }
+  }
+  async function recordAction(kind) {
+    const key = kind === 'follow' ? 'freeWallFollowWindow' : 'freeWallUnfollowWindow';
+    const data = await storeGet(key);
+    const win = [...(data[key] || []), Date.now()].filter((t) => Date.now() - t < 15 * 60 * 1000);
+    await storeSet({ [key]: win });
+  }
+  function actionDelayMs(cfg) {
+    if (cfg.intervalSec && cfg.intervalSec > 0) return cfg.intervalSec * 1000;
+    return 5000 + Math.floor(Math.random() * 3000); // 随机 5–8 秒
+  }
+
+  async function runFollowBack(cfg) {
+    const me = myUsername();
+    if (!me) { await logLine('没识别到当前账号，请先在 X 页面停留几秒再试。'); return; }
+    const targetPath = cfg.onlyVerified ? 'verified_followers' : 'followers';
+    if (!location.pathname.includes(`/${targetPath}`)) {
+      await storeSet({ freeWallPendingTask: { mode: 'follow', cfg, ts: Date.now() } });
+      await logLine(`正在跳转到你的 ${cfg.onlyVerified ? '已认证粉丝' : '粉丝'}列表…`);
+      location.href = `https://x.com/${me}/${targetPath}`;
+      return;
+    }
+    const { freeWallRecentUnfollows } = await storeGet('freeWallRecentUnfollows');
+    const recentUnfollows = freeWallRecentUnfollows || {};
+    const queue = [];
+    await setProgress({ mode: 'follow', phase: 'scanning', checked: 0, acted: 0, failed: 0, skipped: 0, list: [] });
+    await logLine(`开始扫描 ${cfg.onlyVerified ? '已认证粉丝' : '粉丝'}（上限 ${cfg.scanLimit} 人）…`);
+    await scanList({
+      limit: cfg.scanLimit,
+      onCandidate: async (rec, count) => {
+        await setProgress({ checked: count });
+        if (rec.state !== 'not-following') { await setProgress({ skipped: (progress.skipped || 0) + 1 }); return; }
+        if (!rec.userId) { await setProgress({ skipped: (progress.skipped || 0) + 1 }); return; }
+        const unfTs = recentUnfollows[rec.username.toLowerCase()];
+        if (unfTs && Date.now() - unfTs < RECENT_UNFOLLOW_TTL_MS) {
+          await setProgress({ skipped: (progress.skipped || 0) + 1 });
+          await logLine(`跳过 @${rec.username}（30 天内取关过，防反复横跳）`);
+          return;
+        }
+        queue.push(rec);
+      },
+    });
+    await logLine(`扫描完成：检查 ${progress.checked} 人，待回关 ${queue.length} 人。开始回关…`);
+    await setProgress({ phase: 'acting' });
+    const myId = myUserId();
+    let acted = 0;
+    for (const rec of queue) {
+      if (acted >= cfg.maxActions) { await logLine(`已达本轮上限 ${cfg.maxActions} 人，停止。`); break; }
+      if (await checkStop()) { await logLine('已手动停止。'); break; }
+      if (!(await waitForWindowSlot('follow', cfg.maxPerWindow))) break;
+      const r = await friendshipsCreate(rec.userId);
+      if (!r.ok) {
+        await setProgress({ failed: (progress.failed || 0) + 1 });
+        await logLine(`回关 @${rec.username} 失败：${r.message}`);
+        if (r.rateLimited) { await logLine('X 返回限流，本轮结束。等 15 分钟后再跑。'); break; }
+        continue;
+      }
+      // 只读复核一次，确认关系真的建立
+      await sleep(1500);
+      let confirmed = true;
+      if (myId) {
+        const rel = await friendshipsShow(myId, rec.userId);
+        if (rel && rel.relationship && rel.relationship.source) confirmed = Boolean(rel.relationship.source.following);
+      }
+      acted += 1;
+      await recordAction('follow');
+      await setProgress({ acted, list: [...(progress.list || []), rec.username] });
+      await logLine(confirmed ? `✅ 已回关 @${rec.username}（${acted}/${cfg.maxActions}）` : `⚠️ @${rec.username} 已发送但复核未确认，计入本轮防重复`);
+      if (acted < cfg.maxActions) await sleep(actionDelayMs(cfg));
+    }
+    await setProgress({ phase: 'done', running: false });
+    await logLine(`回关任务结束：成功 ${acted}，失败 ${progress.failed || 0}，跳过 ${progress.skipped || 0}。`);
+  }
+
+  async function runUnfollow(cfg) {
+    const me = myUsername();
+    if (!me) { await logLine('没识别到当前账号，请先在 X 页面停留几秒再试。'); return; }
+    if (!location.pathname.endsWith('/following')) {
+      await storeSet({ freeWallPendingTask: { mode: 'unfollow', cfg, ts: Date.now() } });
+      await logLine('正在跳转到你的正在关注列表…');
+      location.href = `https://x.com/${me}/following`;
+      return;
+    }
+    const whitelist = new Set((cfg.whitelist || []).map((x) => x.replace(/^@/, '').toLowerCase()));
+    const queue = [];
+    const skipReasons = { noHit: 0, whitelist: 0, noId: 0 };
+    await setProgress({ mode: 'unfollow', phase: 'scanning', checked: 0, acted: 0, failed: 0, skipped: 0, list: [] });
+    await logLine(`开始扫描正在关注（上限 ${cfg.scanLimit} 人）…`);
+    await scanList({
+      limit: cfg.scanLimit,
+      onCandidate: async (rec, count) => {
+        await setProgress({ checked: count });
+        const hitNonFollower = cfg.includeNonFollowers && !rec.followsYou;
+        const hitUnverified = cfg.includeUnverified && !rec.verified;
+        if (!hitNonFollower && !hitUnverified) { skipReasons.noHit += 1; await setProgress({ skipped: (progress.skipped || 0) + 1 }); return; }
+        if (whitelist.has(rec.username.toLowerCase())) {
+          skipReasons.whitelist += 1;
+          await setProgress({ skipped: (progress.skipped || 0) + 1 });
+          await logLine(`白名单跳过 @${rec.username}`);
+          return;
+        }
+        if (!rec.userId) { skipReasons.noId += 1; await setProgress({ skipped: (progress.skipped || 0) + 1 }); return; }
+        queue.push({ ...rec, reason: [hitNonFollower ? '未回关' : '', hitUnverified ? '无蓝V' : ''].filter(Boolean).join('+') });
+      },
+    });
+    await logLine(`跳过明细：未命中条件 ${skipReasons.noHit}，白名单 ${skipReasons.whitelist}，没读到用户ID ${skipReasons.noId}`);
+    await logLine(`扫描完成：检查 ${progress.checked} 人，命中 ${queue.length} 人${cfg.scanOnly ? '（只扫不取关）' : ''}。`);
+    await setProgress({ list: queue.map((q) => q.username), candidates: queue.map((q) => ({ u: q.username, r: q.reason })) });
+    if (cfg.scanOnly) { await setProgress({ phase: 'done', running: false }); await logLine('名单已保存，在插件面板可导出 CSV。'); return; }
+    await setProgress({ phase: 'acting', list: [] });
+    let acted = 0;
+    const { freeWallRecentUnfollows } = await storeGet('freeWallRecentUnfollows');
+    const recentUnfollows = freeWallRecentUnfollows || {};
+    for (const rec of queue) {
+      if (acted >= cfg.maxActions) { await logLine(`已达本轮上限 ${cfg.maxActions} 人，停止。`); break; }
+      if (await checkStop()) { await logLine('已手动停止。'); break; }
+      if (!(await waitForWindowSlot('unfollow', cfg.maxPerWindow))) break;
+      const r = await friendshipsDestroy(rec.userId);
+      if (!r.ok) {
+        await setProgress({ failed: (progress.failed || 0) + 1 });
+        await logLine(`取关 @${rec.username} 失败：${r.message}`);
+        if (r.rateLimited) { await logLine('X 返回限流，本轮结束。等 15 分钟后再跑。'); break; }
+        continue;
+      }
+      acted += 1;
+      recentUnfollows[rec.username.toLowerCase()] = Date.now();
+      await recordAction('unfollow');
+      await setProgress({ acted, list: [...(progress.list || []), rec.username] });
+      await logLine(`✅ 已取关 @${rec.username}（${rec.reason}，${acted}/${cfg.maxActions}）`);
+      if (acted < cfg.maxActions) await sleep(actionDelayMs(cfg));
+    }
+    await storeSet({ freeWallRecentUnfollows: recentUnfollows });
+    await setProgress({ phase: 'done', running: false });
+    await logLine(`取关任务结束：成功 ${acted}，失败 ${progress.failed || 0}，跳过 ${progress.skipped || 0}。`);
+  }
+
+  async function startTask(mode, cfg) {
+    if (S.running) return;
+    S.running = true;
+    S.stopRequested = false;
+    const { freeWallStopSignal } = await storeGet('freeWallStopSignal');
+    S.stopSignalSeen = freeWallStopSignal || 0;
+    progress = { running: true, mode, phase: 'starting', checked: 0, acted: 0, failed: 0, skipped: 0, list: [], log: [] };
+    await storeSet({ freeWallProgress: progress, freeWallPendingTask: null });
+    try {
+      if (mode === 'follow') await runFollowBack(cfg); else await runUnfollow(cfg);
+    } catch (e) {
+      await logLine('任务异常停止：' + (e && e.message ? e.message : String(e)));
+      await setProgress({ phase: 'error', running: false });
+    } finally {
+      S.running = false;
+    }
+  }
+
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg && msg.type === 'FREE_WALL_START') {
+      startTask(msg.mode, msg.cfg);
+      sendResponse({ ok: true });
+    } else if (msg && msg.type === 'FREE_WALL_WHO_AM_I') {
+      sendResponse({ username: myUsername(), userId: myUserId() });
+    }
+    return true;
+  });
+
+  // 页面跳转后自动续跑
+  (async () => {
+    const { freeWallPendingTask } = await storeGet('freeWallPendingTask');
+    if (freeWallPendingTask && Date.now() - freeWallPendingTask.ts < 5 * 60 * 1000) {
+      await sleep(1500);
+      startTask(freeWallPendingTask.mode, freeWallPendingTask.cfg);
+    }
+  })();
+})();

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<header>
+  <div class="title">Free Wall <span class="badge">自用免费版</span></div>
+  <div id="account" class="account">未检测到 X 页面…</div>
+</header>
+
+<nav class="tabs">
+  <button id="tab-follow" class="tab active">回关粉丝</button>
+  <button id="tab-unfollow" class="tab">取关清理</button>
+</nav>
+
+<section id="panel-follow">
+  <label class="row"><span>扫描上限（人）</span><input id="f-scanLimit" type="number" min="1" max="500" value="200"></label>
+  <label class="row"><span>本轮最多回关</span><input id="f-maxActions" type="number" min="1" max="100" value="15"></label>
+  <label class="row"><span>间隔秒数（0=随机5–8秒）</span><input id="f-interval" type="number" min="0" max="600" value="0"></label>
+  <label class="check"><input id="f-onlyVerified" type="checkbox" checked> 只回关已认证（蓝V）粉丝</label>
+  <button id="f-start" class="primary">开始回关</button>
+</section>
+
+<section id="panel-unfollow" class="hidden">
+  <label class="row"><span>扫描上限（人）</span><input id="u-scanLimit" type="number" min="1" max="2000" value="200"></label>
+  <label class="row"><span>本轮最多取关</span><input id="u-maxActions" type="number" min="1" max="200" value="15"></label>
+  <label class="row"><span>间隔秒数（0=随机5–8秒）</span><input id="u-interval" type="number" min="0" max="600" value="0"></label>
+  <label class="check"><input id="u-nonfollowers" type="checkbox" checked> 取关未回关的</label>
+  <label class="check"><input id="u-unverified" type="checkbox"> 取关无蓝V的</label>
+  <label class="check"><input id="u-scanOnly" type="checkbox"> 只生成名单，不取关</label>
+  <label class="block"><span>白名单（每行一个 @用户名，永不取关）</span><textarea id="u-whitelist" rows="3" placeholder="elonmusk"></textarea></label>
+  <button id="u-start" class="primary">开始取关</button>
+  <button id="u-export" class="ghost">导出上次名单 CSV</button>
+</section>
+
+<section class="status">
+  <div class="stats">
+    <span>检查 <b id="st-checked">0</b></span>
+    <span>成功 <b id="st-acted">0</b></span>
+    <span>跳过 <b id="st-skipped">0</b></span>
+    <span>失败 <b id="st-failed">0</b></span>
+    <span id="st-phase">空闲</span>
+  </div>
+  <button id="stop" class="danger">停止任务</button>
+  <pre id="log"></pre>
+</section>
+
+<footer>无授权校验 · 无后端 · 数据只存本机 chrome.storage<br>限流保护：15 次/15 分钟（跟原版同规则，可在上限里调）</footer>
+<script src="popup.js"></script>
+</body>
+</html>
