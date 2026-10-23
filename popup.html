@@ -5,49 +5,65 @@
 <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-<header>
-  <div class="title">Free Wall <span class="badge">自用免费版</span></div>
-  <div id="account" class="account">未检测到 X 页面…</div>
+<header class="hero">
+  <div class="brand">
+    <img class="brand-icon" src="icons/icon128.png" alt="X">
+    <div class="brand-text">
+      <div class="title">Free Wall <span class="version">v1.0.4</span></div>
+      <div id="account" class="account">未检测到 X 页面…</div>
+    </div>
+  </div>
+  <div class="hero-sub">回关粉丝 · 取关清理 · 本地运行</div>
 </header>
 
-<nav class="tabs">
+<nav class="tabs" aria-label="功能切换">
   <button id="tab-follow" class="tab active">回关粉丝</button>
   <button id="tab-unfollow" class="tab">取关清理</button>
 </nav>
 
-<section id="panel-follow">
+<main>
+<section id="panel-follow" class="card">
+  <div class="card-title">回关设置</div>
   <label class="row"><span>扫描上限（人）</span><input id="f-scanLimit" type="number" min="1" max="500" value="200"></label>
   <label class="row"><span>本轮最多回关</span><input id="f-maxActions" type="number" min="1" max="100" value="15"></label>
-  <label class="row"><span>间隔秒数（0=随机5–8秒）</span><input id="f-interval" type="number" min="0" max="600" value="0"></label>
-  <label class="check"><input id="f-onlyVerified" type="checkbox" checked> 只回关已认证（蓝V）粉丝</label>
+  <label class="row"><span>间隔秒数</span><input id="f-interval" type="number" min="0" max="600" value="0"></label>
+  <div class="hint">间隔填 0 时，每次动作随机等待 5–8 秒。</div>
+  <label class="check"><input id="f-onlyVerified" type="checkbox" checked><span>只回关已认证（蓝 V）粉丝</span></label>
   <button id="f-start" class="primary">开始回关</button>
 </section>
 
-<section id="panel-unfollow" class="hidden">
+<section id="panel-unfollow" class="card hidden">
+  <div class="card-title">取关设置</div>
   <label class="row"><span>扫描上限（人）</span><input id="u-scanLimit" type="number" min="1" max="2000" value="200"></label>
   <label class="row"><span>本轮最多取关</span><input id="u-maxActions" type="number" min="1" max="200" value="15"></label>
-  <label class="row"><span>间隔秒数（0=随机5–8秒）</span><input id="u-interval" type="number" min="0" max="600" value="0"></label>
-  <label class="check"><input id="u-nonfollowers" type="checkbox" checked> 取关未回关的</label>
-  <label class="check"><input id="u-unverified" type="checkbox"> 取关无蓝V的</label>
-  <label class="check"><input id="u-scanOnly" type="checkbox"> 只生成名单，不取关</label>
-  <label class="block"><span>白名单（每行一个 @用户名，永不取关）</span><textarea id="u-whitelist" rows="3" placeholder="elonmusk"></textarea></label>
+  <label class="row"><span>间隔秒数</span><input id="u-interval" type="number" min="0" max="600" value="0"></label>
+  <div class="hint">间隔填 0 时，每次动作随机等待 5–8 秒。</div>
+  <label class="check"><input id="u-nonfollowers" type="checkbox" checked><span>取关未回关的</span></label>
+  <label class="check"><input id="u-unverified" type="checkbox"><span>取关无蓝 V 的</span></label>
+  <label class="check"><input id="u-scanOnly" type="checkbox"><span>只生成名单，不取关</span></label>
+  <label class="block"><span>白名单（每行一个用户名，永不取关）</span><textarea id="u-whitelist" rows="3" placeholder="elonmusk"></textarea></label>
   <button id="u-start" class="primary">开始取关</button>
   <button id="u-export" class="ghost">导出上次名单 CSV</button>
 </section>
 
-<section class="status">
+<section class="card status-card">
+  <div class="status-head">
+    <div class="card-title">任务进度</div>
+    <span id="st-phase" class="status-pill">空闲</span>
+  </div>
   <div class="stats">
-    <span>检查 <b id="st-checked">0</b></span>
-    <span>成功 <b id="st-acted">0</b></span>
-    <span>跳过 <b id="st-skipped">0</b></span>
-    <span>失败 <b id="st-failed">0</b></span>
-    <span id="st-phase">空闲</span>
+    <div class="stat"><span>检查</span><b id="st-checked">0</b></div>
+    <div class="stat"><span>成功</span><b id="st-acted">0</b></div>
+    <div class="stat"><span>跳过</span><b id="st-skipped">0</b></div>
+    <div class="stat"><span>失败</span><b id="st-failed">0</b></div>
   </div>
   <button id="stop" class="danger">停止任务</button>
+  <div class="log-title">运行日志</div>
   <pre id="log"></pre>
 </section>
+</main>
 
-<footer>无授权校验 · 无后端 · 数据只存本机 chrome.storage<br>限流保护：关注/取关各 15 次 / 15 分钟</footer>
+<footer>Free Wall v1.0.4 · MIT License<br>关注/取关各有 15 次 / 15 分钟限流保护</footer>
 <script src="popup.js"></script>
 </body>
 </html>

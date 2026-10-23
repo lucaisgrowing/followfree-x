@@ -1,5 +1,6 @@
 # Free Wall — X 回关/取关助手
 
+[![Version](https://img.shields.io/badge/version-v1.0.4-gold.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg)](LICENSE)
 
 一个免费、开源的 Chrome 扩展（Manifest V3），用来管理 X（Twitter）的关注关系：批量回关粉丝、清理正在关注里未回关或无蓝 V 的账号。
@@ -71,6 +72,12 @@
 - `popup.html` / `popup.css` / `popup.js` — 双标签操作面板
 
 改完代码后在 `chrome://extensions` 点扩展的刷新按钮即可生效。欢迎提 Issue 和 PR。
+
+## 版本说明
+
+当前版本：**v1.0.4**（2026-10-23）。
+
+v1.0.4 主要调整插件面板 UI：改为黑金品牌头部、分段功能标签、卡片式设置区、统计数据块和深色运行日志区，并补齐版本说明与更新日志。完整历史见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## License
 
