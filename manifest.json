@@ -1,7 +1,7 @@
 {
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Free Wall"
+    "default_title": "FollowFree X"
   },
   "content_scripts": [
     {
@@ -27,9 +27,9 @@
     "48": "icons/icon48.png"
   },
   "manifest_version": 3,
-  "name": "Free Wall - X 回关/取关助手（自用免费版）",
+  "name": "FollowFree X — 回关/取关助手",
   "permissions": [
     "storage"
   ],
-  "version": "1.0.4"
+  "version": "1.0.5"
 }

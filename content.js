@@ -1,6 +1,6 @@
 (() => {
-  if (globalThis.__freeWallLoaded) return;
-  globalThis.__freeWallLoaded = true;
+  if (globalThis.__followFreeLoaded) return;
+  globalThis.__followFreeLoaded = true;
 
   // X 网页端公开 Bearer（所有网页访客共用，非任何人的私钥）
   const X_WEB_BEARER = 'AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
@@ -36,7 +36,7 @@
   let progress = null;
   async function setProgress(patch) {
     progress = { ...(progress || {}), ...patch, updatedAt: Date.now() };
-    await storeSet({ freeWallProgress: progress });
+    await storeSet({ followFreeProgress: progress });
   }
   async function logLine(text) {
     const log = [...((progress && progress.log) || []), `[${new Date().toLocaleTimeString()}] ${text}`].slice(-60);
@@ -45,9 +45,9 @@
 
   async function checkStop() {
     if (S.stopRequested) return true;
-    const { freeWallStopSignal } = await storeGet('freeWallStopSignal');
-    if (freeWallStopSignal && freeWallStopSignal !== S.stopSignalSeen) {
-      S.stopSignalSeen = freeWallStopSignal;
+    const { followFreeStopSignal } = await storeGet('followFreeStopSignal');
+    if (followFreeStopSignal && followFreeStopSignal !== S.stopSignalSeen) {
+      S.stopSignalSeen = followFreeStopSignal;
       S.stopRequested = true;
       return true;
     }
@@ -146,7 +146,7 @@
   async function waitForWindowSlot(kind, maxPerWindow) {
     while (true) {
       if (await checkStop()) return false;
-      const key = kind === 'follow' ? 'freeWallFollowWindow' : 'freeWallUnfollowWindow';
+      const key = kind === 'follow' ? 'followFreeFollowWindow' : 'followFreeUnfollowWindow';
       const data = await storeGet(key);
       const now = Date.now();
       const win = (data[key] || []).filter((t) => now - t < 15 * 60 * 1000);
@@ -157,7 +157,7 @@
     }
   }
   async function recordAction(kind) {
-    const key = kind === 'follow' ? 'freeWallFollowWindow' : 'freeWallUnfollowWindow';
+    const key = kind === 'follow' ? 'followFreeFollowWindow' : 'followFreeUnfollowWindow';
     const data = await storeGet(key);
     const win = [...(data[key] || []), Date.now()].filter((t) => Date.now() - t < 15 * 60 * 1000);
     await storeSet({ [key]: win });
@@ -172,13 +172,13 @@
     if (!me) { await logLine('没识别到当前账号，请先在 X 页面停留几秒再试。'); return; }
     const targetPath = cfg.onlyVerified ? 'verified_followers' : 'followers';
     if (!location.pathname.includes(`/${targetPath}`)) {
-      await storeSet({ freeWallPendingTask: { mode: 'follow', cfg, ts: Date.now() } });
+      await storeSet({ followFreePendingTask: { mode: 'follow', cfg, ts: Date.now() } });
       await logLine(`正在跳转到你的 ${cfg.onlyVerified ? '已认证粉丝' : '粉丝'}列表…`);
       location.href = `https://x.com/${me}/${targetPath}`;
       return;
     }
-    const { freeWallRecentUnfollows } = await storeGet('freeWallRecentUnfollows');
-    const recentUnfollows = freeWallRecentUnfollows || {};
+    const { followFreeRecentUnfollows } = await storeGet('followFreeRecentUnfollows');
+    const recentUnfollows = followFreeRecentUnfollows || {};
     const queue = [];
     await setProgress({ mode: 'follow', phase: 'scanning', checked: 0, acted: 0, failed: 0, skipped: 0, list: [] });
     await logLine(`开始扫描 ${cfg.onlyVerified ? '已认证粉丝' : '粉丝'}（上限 ${cfg.scanLimit} 人）…`);
@@ -233,7 +233,7 @@
     const me = myUsername();
     if (!me) { await logLine('没识别到当前账号，请先在 X 页面停留几秒再试。'); return; }
     if (!location.pathname.endsWith('/following')) {
-      await storeSet({ freeWallPendingTask: { mode: 'unfollow', cfg, ts: Date.now() } });
+      await storeSet({ followFreePendingTask: { mode: 'unfollow', cfg, ts: Date.now() } });
       await logLine('正在跳转到你的正在关注列表…');
       location.href = `https://x.com/${me}/following`;
       return;
@@ -266,8 +266,8 @@
     if (cfg.scanOnly) { await setProgress({ phase: 'done', running: false }); await logLine('名单已保存，在插件面板可导出 CSV。'); return; }
     await setProgress({ phase: 'acting', list: [] });
     let acted = 0;
-    const { freeWallRecentUnfollows } = await storeGet('freeWallRecentUnfollows');
-    const recentUnfollows = freeWallRecentUnfollows || {};
+    const { followFreeRecentUnfollows } = await storeGet('followFreeRecentUnfollows');
+    const recentUnfollows = followFreeRecentUnfollows || {};
     for (const rec of queue) {
       if (acted >= cfg.maxActions) { await logLine(`已达本轮上限 ${cfg.maxActions} 人，停止。`); break; }
       if (await checkStop()) { await logLine('已手动停止。'); break; }
@@ -286,7 +286,7 @@
       await logLine(`✅ 已取关 @${rec.username}（${rec.reason}，${acted}/${cfg.maxActions}）`);
       if (acted < cfg.maxActions) await sleep(actionDelayMs(cfg));
     }
-    await storeSet({ freeWallRecentUnfollows: recentUnfollows });
+    await storeSet({ followFreeRecentUnfollows: recentUnfollows });
     await setProgress({ phase: 'done', running: false });
     await logLine(`取关任务结束：成功 ${acted}，失败 ${progress.failed || 0}，跳过 ${progress.skipped || 0}。`);
   }
@@ -295,10 +295,10 @@
     if (S.running) return;
     S.running = true;
     S.stopRequested = false;
-    const { freeWallStopSignal } = await storeGet('freeWallStopSignal');
-    S.stopSignalSeen = freeWallStopSignal || 0;
+    const { followFreeStopSignal } = await storeGet('followFreeStopSignal');
+    S.stopSignalSeen = followFreeStopSignal || 0;
     progress = { running: true, mode, phase: 'starting', checked: 0, acted: 0, failed: 0, skipped: 0, list: [], log: [] };
-    await storeSet({ freeWallProgress: progress, freeWallPendingTask: null });
+    await storeSet({ followFreeProgress: progress, followFreePendingTask: null });
     try {
       if (mode === 'follow') await runFollowBack(cfg); else await runUnfollow(cfg);
     } catch (e) {
@@ -310,10 +310,10 @@
   }
 
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    if (msg && msg.type === 'FREE_WALL_START') {
+    if (msg && msg.type === 'FOLLOW_FREE_START') {
       startTask(msg.mode, msg.cfg);
       sendResponse({ ok: true });
-    } else if (msg && msg.type === 'FREE_WALL_WHO_AM_I') {
+    } else if (msg && msg.type === 'FOLLOW_FREE_WHO_AM_I') {
       sendResponse({ username: myUsername(), userId: myUserId() });
     }
     return true;
@@ -321,10 +321,10 @@
 
   // 页面跳转后自动续跑
   (async () => {
-    const { freeWallPendingTask } = await storeGet('freeWallPendingTask');
-    if (freeWallPendingTask && Date.now() - freeWallPendingTask.ts < 5 * 60 * 1000) {
+    const { followFreePendingTask } = await storeGet('followFreePendingTask');
+    if (followFreePendingTask && Date.now() - followFreePendingTask.ts < 5 * 60 * 1000) {
       await sleep(1500);
-      startTask(freeWallPendingTask.mode, freeWallPendingTask.cfg);
+      startTask(followFreePendingTask.mode, followFreePendingTask.cfg);
     }
   })();
 })();
