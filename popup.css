@@ -65,6 +65,12 @@ main { padding: 10px 12px 0; }
 }
 .row input:focus, textarea:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(212,160,23,.16); }
 .hint { padding: 7px 0 1px; color: #8a94a0; font-size: 11px; }
+.seg-label { margin-top: 9px; color: #2d3339; font-weight: 600; }
+.seg { display: flex; gap: 6px; margin-top: 6px; padding: 3px; background: #eef1f3; border-radius: 999px; }
+.seg-opt { flex: 1; text-align: center; cursor: pointer; }
+.seg-opt input { position: absolute; opacity: 0; }
+.seg-opt span { display: block; padding: 6px 4px; border-radius: 999px; color: #5f6871; font-weight: 700; }
+.seg-opt input:checked + span { background: #050505; color: var(--gold-light); box-shadow: 0 3px 10px rgba(0,0,0,.18); }
 .check {
   display: flex; align-items: center; gap: 8px; margin: 9px 0; cursor: pointer; font-weight: 600;
 }

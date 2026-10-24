@@ -3,11 +3,14 @@ const $ = (id) => document.getElementById(id);
 function showTab(which) {
   $('tab-follow').classList.toggle('active', which === 'follow');
   $('tab-unfollow').classList.toggle('active', which === 'unfollow');
+  $('tab-keyword').classList.toggle('active', which === 'keyword');
   $('panel-follow').classList.toggle('hidden', which !== 'follow');
   $('panel-unfollow').classList.toggle('hidden', which !== 'unfollow');
+  $('panel-keyword').classList.toggle('hidden', which !== 'keyword');
 }
 $('tab-follow').onclick = () => showTab('follow');
 $('tab-unfollow').onclick = () => showTab('unfollow');
+$('tab-keyword').onclick = () => showTab('keyword');
 
 async function activeXTab() {
   let tabs = await chrome.tabs.query({ active: true, currentWindow: true, url: ['https://x.com/*', 'https://twitter.com/*'] });
@@ -35,23 +38,39 @@ async function start(mode) {
         maxActions: num('f-maxActions', 15),
         maxPerWindow: 15,
         intervalSec: parseInt($('f-interval').value, 10) || 0,
-        onlyVerified: $('f-onlyVerified').checked,
+        onlyVerified: $('f-scope-verified').checked,
+        scope: $('f-scope-verified').checked ? 'verified' : 'all',
+      }
+    : mode === 'keyword'
+    ? {
+        keyword: $('k-keyword').value.trim(),
+        scanLimit: 200,
+        maxActions: num('k-maxActions', 15),
+        maxPerWindow: 15,
+        intervalSec: parseInt($('k-interval').value, 10) || 0,
+        onlyVerified: $('k-onlyVerified').checked,
       }
     : {
         scanLimit: num('u-scanLimit', 200),
         maxActions: num('u-maxActions', 15),
         maxPerWindow: 15,
         intervalSec: parseInt($('u-interval').value, 10) || 0,
+        skipTop: Math.max(0, Math.min(500, parseInt($('u-skipTop').value, 10) || 0)),
         includeNonFollowers: $('u-nonfollowers').checked,
         includeUnverified: $('u-unverified').checked,
         scanOnly: $('u-scanOnly').checked,
         whitelist: $('u-whitelist').value.split('\n').map((s) => s.trim()).filter(Boolean),
       };
+  if (mode === 'keyword' && !cfg.keyword) {
+    alert('先填一个关键词');
+    return;
+  }
   if (mode === 'unfollow' && !cfg.includeNonFollowers && !cfg.includeUnverified && !cfg.scanOnly) {
     alert('未回关、无蓝V至少勾一个（或勾只生成名单）');
     return;
   }
-  await chrome.storage.local.set({ followFreeUiCfg: cfg, followFreeStopSignal: 0 });
+  const prev = (await chrome.storage.local.get('followFreeUiCfg')).followFreeUiCfg || {};
+  await chrome.storage.local.set({ followFreeUiCfg: { ...prev, ...cfg, mode }, followFreeStopSignal: 0 });
   const tab = await activeXTab();
   try {
     await chrome.tabs.sendMessage(tab.id, { type: 'FOLLOW_FREE_START', mode, cfg });
@@ -62,6 +81,7 @@ async function start(mode) {
 
 $('f-start').onclick = () => start('follow');
 $('u-start').onclick = () => start('unfollow');
+$('k-start').onclick = () => start('keyword');
 $('stop').onclick = async () => {
   await chrome.storage.local.set({ followFreeStopSignal: Date.now() });
 };
@@ -93,8 +113,17 @@ async function renderProgress() {
 }
 
 (async () => {
-  const { followFreeUiCfg } = await chrome.storage.local.get('followFreeUiCfg');
-  if (followFreeUiCfg && followFreeUiCfg.whitelist) $('u-whitelist').value = followFreeUiCfg.whitelist.join('\n');
+  const { followFreeUiCfg: c } = await chrome.storage.local.get('followFreeUiCfg');
+  if (c) {
+    if (c.whitelist) $('u-whitelist').value = c.whitelist.join('\n');
+    if (typeof c.skipTop === 'number') $('u-skipTop').value = c.skipTop;
+    if (c.scope) {
+      $('f-scope-verified').checked = c.scope === 'verified';
+      $('f-scope-all').checked = c.scope !== 'verified';
+    }
+    if (c.keyword) $('k-keyword').value = c.keyword;
+    if (c.mode === 'keyword' && typeof c.onlyVerified === 'boolean') $('k-onlyVerified').checked = c.onlyVerified;
+  }
   refreshAccount();
   renderProgress();
   setInterval(renderProgress, 700);

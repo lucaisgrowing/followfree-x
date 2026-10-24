@@ -1,6 +1,6 @@
 # FollowFree 𝕏 — 𝕏 回关/取关助手
 
-[![Version](https://img.shields.io/badge/version-v1.0.6-gold.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v1.0.7-gold.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg)](LICENSE)
 
 一个免费、开源的 Chrome 扩展（Manifest V3），用来管理 𝕏（Twitter）的关注关系：批量回关粉丝、清理正在关注里未回关或无蓝 V 的账号。
@@ -12,6 +12,7 @@
 ### 回关粉丝
 
 - 扫描「已认证粉丝」列表，或切换为扫描全部粉丝
+- 回关范围开关：仅已认证（蓝 V）/ 全部粉丝，二选一
 - 自动滚动列表逐行采集，识别每个粉丝的蓝 V 标记和当前关注状态
 - 只对尚未关注的粉丝发起回关，逐个执行、逐个记录结果
 - 每个回关动作后用只读接口复核一次关系是否真的建立，未确认的不重复发送
@@ -25,12 +26,21 @@
 - 按条件筛选命中对象，可单选也可组合：
   - 未回关（没有「Follows you / 关注你」徽标）
   - 无蓝 V（没有认证标记）
+- 跳过列表前 N 位：默认 20，列表前 N 位不参与清理，从第 N+1 位开始算；填 0 = 不跳过
 - 白名单：每行填一个用户名，名单内账号永不取关
 - 「只生成名单」模式：只扫描、只出名单，不执行任何取关
 - 名单可导出 CSV（用户名 + 命中原因），先看名单再决定动不动手
 - 批量取关，逐个执行、逐个记录结果
 
 <img src="screenshots/unfollow-panel-106.png" width="380" alt="FollowFree 𝕏 取关清理面板（演示数据）">
+
+### 关键词关注
+
+- 在 𝕏 搜索「用户」页按关键词滚动采集，只关注当前未关注的账号
+- 可选只关注已认证（蓝 V）账号；本轮最多关注数可调，同样受 15 次 / 15 分钟限流保护
+- 每个关注动作后用只读接口复核一次关系是否真的建立
+
+<img src="screenshots/keyword-panel-107.png" width="380" alt="FollowFree 𝕏 关键词关注面板（演示数据）">
 
 ### 节奏与防误操作
 
@@ -79,9 +89,9 @@
 
 ## 版本说明
 
-当前版本：**v1.0.6**（2026-10-23）。
+当前版本：**v1.0.7**（2026-10-24）。
 
-v1.0.6 把品牌名改用 𝕏 字符（FollowFree 𝕏），功能与 v1.0.5 相同。完整历史见 [CHANGELOG.md](CHANGELOG.md)。
+v1.0.7 新增：取关「跳过列表前 N 位」、回关范围二选一开关、关键词关注。完整历史见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## License
 

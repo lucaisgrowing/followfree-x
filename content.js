@@ -240,13 +240,18 @@
     }
     const whitelist = new Set((cfg.whitelist || []).map((x) => x.replace(/^@/, '').toLowerCase()));
     const queue = [];
-    const skipReasons = { noHit: 0, whitelist: 0, noId: 0 };
+    const skipReasons = { noHit: 0, whitelist: 0, noId: 0, topSkip: 0 };
     await setProgress({ mode: 'unfollow', phase: 'scanning', checked: 0, acted: 0, failed: 0, skipped: 0, list: [] });
-    await logLine(`开始扫描正在关注（上限 ${cfg.scanLimit} 人）…`);
+    await logLine(`开始扫描正在关注（上限 ${cfg.scanLimit} 人${cfg.skipTop ? `，跳过列表前 ${cfg.skipTop} 位` : ''}）…`);
     await scanList({
       limit: cfg.scanLimit,
       onCandidate: async (rec, count) => {
         await setProgress({ checked: count });
+        if (cfg.skipTop && count <= cfg.skipTop) {
+          skipReasons.topSkip += 1;
+          await setProgress({ skipped: (progress.skipped || 0) + 1 });
+          return;
+        }
         const hitNonFollower = cfg.includeNonFollowers && !rec.followsYou;
         const hitUnverified = cfg.includeUnverified && !rec.verified;
         if (!hitNonFollower && !hitUnverified) { skipReasons.noHit += 1; await setProgress({ skipped: (progress.skipped || 0) + 1 }); return; }
@@ -260,7 +265,7 @@
         queue.push({ ...rec, reason: [hitNonFollower ? '未回关' : '', hitUnverified ? '无蓝V' : ''].filter(Boolean).join('+') });
       },
     });
-    await logLine(`跳过明细：未命中条件 ${skipReasons.noHit}，白名单 ${skipReasons.whitelist}，没读到用户ID ${skipReasons.noId}`);
+    await logLine(`跳过明细：未命中条件 ${skipReasons.noHit}，白名单 ${skipReasons.whitelist}，没读到用户ID ${skipReasons.noId}${skipReasons.topSkip ? `，列表前 ${cfg.skipTop} 位保护 ${skipReasons.topSkip}` : ''}`);
     await logLine(`扫描完成：检查 ${progress.checked} 人，命中 ${queue.length} 人${cfg.scanOnly ? '（只扫不取关）' : ''}。`);
     await setProgress({ list: queue.map((q) => q.username), candidates: queue.map((q) => ({ u: q.username, r: q.reason })) });
     if (cfg.scanOnly) { await setProgress({ phase: 'done', running: false }); await logLine('名单已保存，在插件面板可导出 CSV。'); return; }
@@ -291,6 +296,69 @@
     await logLine(`取关任务结束：成功 ${acted}，失败 ${progress.failed || 0}，跳过 ${progress.skipped || 0}。`);
   }
 
+  async function runKeywordFollow(cfg) {
+    const me = myUsername();
+    if (!me) { await logLine('没识别到当前账号，请先在 𝕏 页面停留几秒再试。'); return; }
+    const searchUrl = `https://x.com/search?q=${encodeURIComponent(cfg.keyword)}&src=typed_query&f=user`;
+    if (!(location.hostname === 'x.com' && location.pathname === '/search' && new URLSearchParams(location.search).get('f') === 'user')) {
+      await storeSet({ followFreePendingTask: { mode: 'keyword', cfg, ts: Date.now() } });
+      await logLine(`正在跳转到关键词「${cfg.keyword}」的用户搜索页…`);
+      location.href = searchUrl;
+      return;
+    }
+    const { followFreeRecentUnfollows } = await storeGet('followFreeRecentUnfollows');
+    const recentUnfollows = followFreeRecentUnfollows || {};
+    const queue = [];
+    await setProgress({ mode: 'keyword', phase: 'scanning', checked: 0, acted: 0, failed: 0, skipped: 0, list: [] });
+    await logLine(`开始按关键词「${cfg.keyword}」扫描用户搜索页（上限 ${cfg.scanLimit} 人）…`);
+    await scanList({
+      limit: cfg.scanLimit,
+      onCandidate: async (rec, count) => {
+        await setProgress({ checked: count });
+        if (rec.username.toLowerCase() === me.toLowerCase()) { await setProgress({ skipped: (progress.skipped || 0) + 1 }); return; }
+        if (rec.state !== 'not-following') { await setProgress({ skipped: (progress.skipped || 0) + 1 }); return; }
+        if (!rec.userId) { await setProgress({ skipped: (progress.skipped || 0) + 1 }); return; }
+        if (cfg.onlyVerified && !rec.verified) { await setProgress({ skipped: (progress.skipped || 0) + 1 }); return; }
+        const unfTs = recentUnfollows[rec.username.toLowerCase()];
+        if (unfTs && Date.now() - unfTs < RECENT_UNFOLLOW_TTL_MS) {
+          await setProgress({ skipped: (progress.skipped || 0) + 1 });
+          await logLine(`跳过 @${rec.username}（30 天内取关过，防反复横跳）`);
+          return;
+        }
+        queue.push(rec);
+      },
+    });
+    await logLine(`扫描完成：检查 ${progress.checked} 人，待关注 ${queue.length} 人。开始关注…`);
+    await setProgress({ phase: 'acting' });
+    const myId = myUserId();
+    let acted = 0;
+    for (const rec of queue) {
+      if (acted >= cfg.maxActions) { await logLine(`已达本轮上限 ${cfg.maxActions} 人，停止。`); break; }
+      if (await checkStop()) { await logLine('已手动停止。'); break; }
+      if (!(await waitForWindowSlot('follow', cfg.maxPerWindow))) break;
+      const r = await friendshipsCreate(rec.userId);
+      if (!r.ok) {
+        await setProgress({ failed: (progress.failed || 0) + 1 });
+        await logLine(`关注 @${rec.username} 失败：${r.message}`);
+        if (r.rateLimited) { await logLine('𝕏 返回限流，本轮结束。等 15 分钟后再跑。'); break; }
+        continue;
+      }
+      await sleep(1500);
+      let confirmed = true;
+      if (myId) {
+        const rel = await friendshipsShow(myId, rec.userId);
+        if (rel && rel.relationship && rel.relationship.source) confirmed = Boolean(rel.relationship.source.following);
+      }
+      acted += 1;
+      await recordAction('follow');
+      await setProgress({ acted, list: [...(progress.list || []), rec.username] });
+      await logLine(confirmed ? `✅ 已关注 @${rec.username}（${acted}/${cfg.maxActions}）` : `⚠️ @${rec.username} 已发送但复核未确认，计入本轮防重复`);
+      if (acted < cfg.maxActions) await sleep(actionDelayMs(cfg));
+    }
+    await setProgress({ phase: 'done', running: false });
+    await logLine(`关键词关注结束：成功 ${acted}，失败 ${progress.failed || 0}，跳过 ${progress.skipped || 0}。`);
+  }
+
   async function startTask(mode, cfg) {
     if (S.running) return;
     S.running = true;
@@ -300,7 +368,9 @@
     progress = { running: true, mode, phase: 'starting', checked: 0, acted: 0, failed: 0, skipped: 0, list: [], log: [] };
     await storeSet({ followFreeProgress: progress, followFreePendingTask: null });
     try {
-      if (mode === 'follow') await runFollowBack(cfg); else await runUnfollow(cfg);
+      if (mode === 'follow') await runFollowBack(cfg);
+      else if (mode === 'keyword') await runKeywordFollow(cfg);
+      else await runUnfollow(cfg);
     } catch (e) {
       await logLine('任务异常停止：' + (e && e.message ? e.message : String(e)));
       await setProgress({ phase: 'error', running: false });

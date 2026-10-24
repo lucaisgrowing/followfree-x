@@ -9,16 +9,17 @@
   <div class="brand">
     <img class="brand-icon" src="icons/icon128.png" alt="X">
     <div class="brand-text">
-      <div class="title">FollowFree 𝕏 <span class="version">v1.0.6</span></div>
+      <div class="title">FollowFree 𝕏 <span class="version">v1.0.7</span></div>
       <div id="account" class="account">未检测到 X 页面…</div>
     </div>
   </div>
-  <div class="hero-sub">回关粉丝 · 取关清理 · 本地运行</div>
+  <div class="hero-sub">回关粉丝 · 取关清理 · 关键词关注 · 本地运行</div>
 </header>
 
 <nav class="tabs" aria-label="功能切换">
   <button id="tab-follow" class="tab active">回关粉丝</button>
   <button id="tab-unfollow" class="tab">取关清理</button>
+  <button id="tab-keyword" class="tab">关键词关注</button>
 </nav>
 
 <main>
@@ -28,7 +29,11 @@
   <label class="row"><span>本轮最多回关</span><input id="f-maxActions" type="number" min="1" max="100" value="15"></label>
   <label class="row"><span>间隔秒数</span><input id="f-interval" type="number" min="0" max="600" value="0"></label>
   <div class="hint">间隔填 0 时，每次动作随机等待 5–8 秒。</div>
-  <label class="check"><input id="f-onlyVerified" type="checkbox" checked><span>只回关已认证（蓝 V）粉丝</span></label>
+  <div class="seg-label">回关范围</div>
+  <div class="seg">
+    <label class="seg-opt"><input id="f-scope-verified" type="radio" name="f-scope" checked><span>仅已认证（蓝 V）</span></label>
+    <label class="seg-opt"><input id="f-scope-all" type="radio" name="f-scope"><span>全部粉丝</span></label>
+  </div>
   <button id="f-start" class="primary">开始回关</button>
 </section>
 
@@ -37,13 +42,24 @@
   <label class="row"><span>扫描上限（人）</span><input id="u-scanLimit" type="number" min="1" max="2000" value="200"></label>
   <label class="row"><span>本轮最多取关</span><input id="u-maxActions" type="number" min="1" max="200" value="15"></label>
   <label class="row"><span>间隔秒数</span><input id="u-interval" type="number" min="0" max="600" value="0"></label>
-  <div class="hint">间隔填 0 时，每次动作随机等待 5–8 秒。</div>
+  <label class="row"><span>跳过列表前 N 位</span><input id="u-skipTop" type="number" min="0" max="500" value="20"></label>
+  <div class="hint">列表前 N 位不参与清理，从第 N+1 位开始算；填 0 = 不跳过。间隔填 0 时，每次动作随机等待 5–8 秒。</div>
   <label class="check"><input id="u-nonfollowers" type="checkbox" checked><span>取关未回关的</span></label>
   <label class="check"><input id="u-unverified" type="checkbox"><span>取关无蓝 V 的</span></label>
   <label class="check"><input id="u-scanOnly" type="checkbox"><span>只生成名单，不取关</span></label>
   <label class="block"><span>白名单（每行一个用户名，永不取关）</span><textarea id="u-whitelist" rows="3" placeholder="elonmusk"></textarea></label>
   <button id="u-start" class="primary">开始取关</button>
   <button id="u-export" class="ghost">导出上次名单 CSV</button>
+</section>
+
+<section id="panel-keyword" class="card hidden">
+  <div class="card-title">关键词关注</div>
+  <label class="row"><span>关键词</span><input id="k-keyword" type="text" placeholder="AI agent" style="width:190px;text-align:left"></label>
+  <label class="row"><span>本轮最多关注</span><input id="k-maxActions" type="number" min="1" max="100" value="15"></label>
+  <label class="row"><span>间隔秒数</span><input id="k-interval" type="number" min="0" max="600" value="0"></label>
+  <div class="hint">在 𝕏 搜索「用户」页按关键词滚动采集，只关注当前未关注的账号；同样受 15 次 / 15 分钟限流保护。间隔填 0 时，每次动作随机等待 5–8 秒。</div>
+  <label class="check"><input id="k-onlyVerified" type="checkbox"><span>只关注已认证（蓝 V）账号</span></label>
+  <button id="k-start" class="primary">开始关键词关注</button>
 </section>
 
 <section class="card status-card">
@@ -63,7 +79,7 @@
 </section>
 </main>
 
-<footer>FollowFree 𝕏 v1.0.6 · MIT License<br>关注/取关各有 15 次 / 15 分钟限流保护</footer>
+<footer>FollowFree 𝕏 v1.0.7 · MIT License<br>关注/取关各有 15 次 / 15 分钟限流保护</footer>
 <script src="popup.js"></script>
 </body>
 </html>
