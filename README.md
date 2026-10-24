@@ -18,7 +18,7 @@
 - 每个回关动作后用只读接口复核一次关系是否真的建立，未确认的不重复发送
 - 扫描上限可调（1–500 人），本轮最多回关人数可调
 
-<img src="screenshots/follow-panel-106.png" width="380" alt="FollowFree 𝕏 回关粉丝面板（演示数据）">
+<img src="screenshots/follow-panel-107.png" width="380" alt="FollowFree 𝕏 回关粉丝面板（演示数据）">
 
 ### 取关清理
 
@@ -32,7 +32,7 @@
 - 名单可导出 CSV（用户名 + 命中原因），先看名单再决定动不动手
 - 批量取关，逐个执行、逐个记录结果
 
-<img src="screenshots/unfollow-panel-106.png" width="380" alt="FollowFree 𝕏 取关清理面板（演示数据）">
+<img src="screenshots/unfollow-panel-107.png" width="380" alt="FollowFree 𝕏 取关清理面板（演示数据）">
 
 ### 关键词关注
 
