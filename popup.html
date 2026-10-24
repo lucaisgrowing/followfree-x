@@ -9,7 +9,7 @@
   <div class="brand">
     <img class="brand-icon" src="icons/icon128.png" alt="X">
     <div class="brand-text">
-      <div class="title">FollowFree 𝕏 <span class="version">v1.0.7</span></div>
+      <div class="title">FollowFree 𝕏 <span class="version">v1.0.8</span></div>
       <div id="account" class="account">未检测到 X 页面…</div>
     </div>
   </div>
@@ -54,10 +54,15 @@
 
 <section id="panel-keyword" class="card hidden">
   <div class="card-title">关键词关注</div>
-  <label class="row"><span>关键词</span><input id="k-keyword" type="text" placeholder="AI agent" style="width:190px;text-align:left"></label>
+  <label class="row"><span>关键词 / 话题</span><input id="k-keyword" type="text" placeholder="#互关" style="width:190px;text-align:left"></label>
+  <div class="seg-label">匹配方式</div>
+  <div class="seg">
+    <label class="seg-opt"><input id="k-source-posts" type="radio" name="k-source" checked><span>发帖作者</span></label>
+    <label class="seg-opt"><input id="k-source-users" type="radio" name="k-source"><span>用户资料</span></label>
+  </div>
   <label class="row"><span>本轮最多关注</span><input id="k-maxActions" type="number" min="1" max="100" value="15"></label>
   <label class="row"><span>间隔秒数</span><input id="k-interval" type="number" min="0" max="600" value="0"></label>
-  <div class="hint">在 𝕏 搜索「用户」页按关键词滚动采集，只关注当前未关注的账号；同样受 15 次 / 15 分钟限流保护。间隔填 0 时，每次动作随机等待 5–8 秒。</div>
+  <div class="hint">发帖作者：在搜索「最新」页按关键词 / 话题滚动采集发帖人并关注（比如填 #互关，关注发过互关帖的人）。用户资料：在搜索「用户」页采集资料匹配的账号。只关注当前未关注的账号，同样受 15 次 / 15 分钟限流保护。间隔填 0 时，每次动作随机等待 5–8 秒。</div>
   <label class="check"><input id="k-onlyVerified" type="checkbox"><span>只关注已认证（蓝 V）账号</span></label>
   <button id="k-start" class="primary">开始关键词关注</button>
 </section>
@@ -79,7 +84,7 @@
 </section>
 </main>
 
-<footer>FollowFree 𝕏 v1.0.7 · MIT License<br>关注/取关各有 15 次 / 15 分钟限流保护</footer>
+<footer>FollowFree 𝕏 v1.0.8 · MIT License<br>关注/取关各有 15 次 / 15 分钟限流保护</footer>
 <script src="popup.js"></script>
 </body>
 </html>

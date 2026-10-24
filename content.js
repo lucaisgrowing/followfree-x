@@ -296,7 +296,133 @@
     await logLine(`取关任务结束：成功 ${acted}，失败 ${progress.failed || 0}，跳过 ${progress.skipped || 0}。`);
   }
 
+  // 帖子里的作者：只取主帖的 User-Name 区（引用帖排在后面，不会误取）
+  function parseTweetAuthor(article) {
+    const nameBox = article.querySelector('[data-testid="User-Name"]');
+    if (!nameBox) return null;
+    let username = '';
+    for (const a of nameBox.querySelectorAll('a[href^="/"]')) {
+      const href = a.getAttribute('href') || '';
+      const m = href.match(/^\/([A-Za-z0-9_]{1,15})$/);
+      if (m && !['home', 'explore', 'notifications', 'messages', 'search', 'settings', 'i'].includes(m[1])) { username = m[1]; break; }
+    }
+    if (!username) return null;
+    const verified = !!nameBox.querySelector('[data-testid="icon-verified"]');
+    return { username, verified };
+  }
+
+  async function resolveUserId(username) {
+    const res = await xFetch(`users/show.json?screen_name=${encodeURIComponent(username)}`);
+    if (!res.ok) return '';
+    try {
+      const d = await res.json();
+      return d && d.id_str ? String(d.id_str) : '';
+    } catch { return ''; }
+  }
+
+  async function runKeywordPostFollow(cfg) {
+    const me = myUsername();
+    if (!me) { await logLine('没识别到当前账号，请先在 𝕏 页面停留几秒再试。'); return; }
+    const params = new URLSearchParams(location.search);
+    const onSearchLive = location.hostname === 'x.com' && location.pathname === '/search' && params.get('f') === 'live';
+    if (!onSearchLive) {
+      await storeSet({ followFreePendingTask: { mode: 'keyword', cfg, ts: Date.now() } });
+      await logLine(`正在跳转到关键词「${cfg.keyword}」的最新帖子搜索页…`);
+      location.href = `https://x.com/search?q=${encodeURIComponent(cfg.keyword)}&src=typed_query&f=live`;
+      return;
+    }
+    const authors = new Map();
+    const seenTweets = new Set();
+    let scanned = 0;
+    let stall = 0;
+    let lastCount = -1;
+    await setProgress({ mode: 'keyword', phase: 'scanning', checked: 0, acted: 0, failed: 0, skipped: 0, list: [] });
+    await logLine(`开始按发帖关键词「${cfg.keyword}」扫描最新帖子（上限 ${cfg.scanLimit} 条）…`);
+    while (scanned < cfg.scanLimit) {
+      if (await checkStop()) break;
+      const articles = document.querySelectorAll('article[data-testid="tweet"]');
+      for (const article of articles) {
+        if (scanned >= cfg.scanLimit) break;
+        const statusLink = article.querySelector('a[href*="/status/"]');
+        const tweetKey = statusLink ? statusLink.getAttribute('href') : '';
+        if (tweetKey) {
+          if (seenTweets.has(tweetKey)) continue;
+          seenTweets.add(tweetKey);
+        }
+        scanned += 1;
+        const rec = parseTweetAuthor(article);
+        if (!rec || authors.has(rec.username.toLowerCase())) continue;
+        authors.set(rec.username.toLowerCase(), rec);
+        if (authors.size <= 3) {
+          await logLine(`样本${authors.size}：@${rec.username} 蓝V=${rec.verified}`);
+        }
+      }
+      await setProgress({ checked: scanned });
+      if (scanned === lastCount) stall += 1; else stall = 0;
+      lastCount = scanned;
+      if (stall >= 8) break; // 连续 8 次滚动无新增 = 到底
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      await sleep(1500);
+    }
+    const { followFreeRecentUnfollows } = await storeGet('followFreeRecentUnfollows');
+    const recentUnfollows = followFreeRecentUnfollows || {};
+    const myId = myUserId();
+    const queue = [];
+    let skipped = 0;
+    for (const rec of authors.values()) {
+      if (queue.length >= cfg.maxActions) break;
+      if (rec.username.toLowerCase() === me.toLowerCase()) { skipped += 1; continue; }
+      if (cfg.onlyVerified && !rec.verified) { skipped += 1; continue; }
+      const unfTs = recentUnfollows[rec.username.toLowerCase()];
+      if (unfTs && Date.now() - unfTs < RECENT_UNFOLLOW_TTL_MS) {
+        skipped += 1;
+        await logLine(`跳过 @${rec.username}（30 天内取关过，防反复横跳）`);
+        continue;
+      }
+      const userId = await resolveUserId(rec.username);
+      if (!userId) { skipped += 1; await logLine(`跳过 @${rec.username}（读不到用户 ID）`); continue; }
+      if (myId) {
+        const rel = await friendshipsShow(myId, userId);
+        if (rel && rel.relationship && rel.relationship.source && rel.relationship.source.following) {
+          skipped += 1;
+          continue;
+        }
+      }
+      queue.push({ ...rec, userId });
+    }
+    await setProgress({ skipped: (progress.skipped || 0) + skipped });
+    await logLine(`扫描完成：检查 ${scanned} 条帖子，去重作者 ${authors.size} 人，待关注 ${queue.length} 人。开始关注…`);
+    await setProgress({ phase: 'acting' });
+    let acted = 0;
+    for (const rec of queue) {
+      if (acted >= cfg.maxActions) { await logLine(`已达本轮上限 ${cfg.maxActions} 人，停止。`); break; }
+      if (await checkStop()) { await logLine('已手动停止。'); break; }
+      if (!(await waitForWindowSlot('follow', cfg.maxPerWindow))) break;
+      const r = await friendshipsCreate(rec.userId);
+      if (!r.ok) {
+        await setProgress({ failed: (progress.failed || 0) + 1 });
+        await logLine(`关注 @${rec.username} 失败：${r.message}`);
+        if (r.rateLimited) { await logLine('𝕏 返回限流，本轮结束。等 15 分钟后再跑。'); break; }
+        continue;
+      }
+      await sleep(1500);
+      let confirmed = true;
+      if (myId) {
+        const rel = await friendshipsShow(myId, rec.userId);
+        if (rel && rel.relationship && rel.relationship.source) confirmed = Boolean(rel.relationship.source.following);
+      }
+      acted += 1;
+      await recordAction('follow');
+      await setProgress({ acted, list: [...(progress.list || []), rec.username] });
+      await logLine(confirmed ? `✅ 已关注 @${rec.username}（${acted}/${cfg.maxActions}）` : `⚠️ @${rec.username} 已发送但复核未确认，计入本轮防重复`);
+      if (acted < cfg.maxActions) await sleep(actionDelayMs(cfg));
+    }
+    await setProgress({ phase: 'done', running: false });
+    await logLine(`关键词关注结束：成功 ${acted}，失败 ${progress.failed || 0}，跳过 ${progress.skipped || 0}。`);
+  }
+
   async function runKeywordFollow(cfg) {
+    if (cfg.source === 'posts') { await runKeywordPostFollow(cfg); return; }
     const me = myUsername();
     if (!me) { await logLine('没识别到当前账号，请先在 𝕏 页面停留几秒再试。'); return; }
     const searchUrl = `https://x.com/search?q=${encodeURIComponent(cfg.keyword)}&src=typed_query&f=user`;

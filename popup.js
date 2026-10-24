@@ -44,6 +44,7 @@ async function start(mode) {
     : mode === 'keyword'
     ? {
         keyword: $('k-keyword').value.trim(),
+        source: $('k-source-posts').checked ? 'posts' : 'users',
         scanLimit: 200,
         maxActions: num('k-maxActions', 15),
         maxPerWindow: 15,
@@ -122,6 +123,10 @@ async function renderProgress() {
       $('f-scope-all').checked = c.scope !== 'verified';
     }
     if (c.keyword) $('k-keyword').value = c.keyword;
+    if (c.source) {
+      $('k-source-posts').checked = c.source === 'posts';
+      $('k-source-users').checked = c.source !== 'posts';
+    }
     if (c.mode === 'keyword' && typeof c.onlyVerified === 'boolean') $('k-onlyVerified').checked = c.onlyVerified;
   }
   refreshAccount();
