@@ -45,6 +45,9 @@ async function start(mode) {
     ? {
         keyword: $('k-keyword').value.trim(),
         source: $('k-source-posts').checked ? 'posts' : 'users',
+        sort: $('k-sort-top').checked ? 'top' : 'live',
+        timeRange: $('k-timeRange').value,
+        minFaves: Math.max(0, parseInt($('k-minFaves').value, 10) || 0),
         scanLimit: 200,
         maxActions: num('k-maxActions', 15),
         maxPerWindow: 15,
@@ -127,6 +130,12 @@ async function renderProgress() {
       $('k-source-posts').checked = c.source === 'posts';
       $('k-source-users').checked = c.source !== 'posts';
     }
+    if (c.sort) {
+      $('k-sort-top').checked = c.sort === 'top';
+      $('k-sort-live').checked = c.sort !== 'top';
+    }
+    if (c.timeRange) $('k-timeRange').value = c.timeRange;
+    if (typeof c.minFaves === 'number') $('k-minFaves').value = c.minFaves;
     if (c.mode === 'keyword' && typeof c.onlyVerified === 'boolean') $('k-onlyVerified').checked = c.onlyVerified;
   }
   refreshAccount();

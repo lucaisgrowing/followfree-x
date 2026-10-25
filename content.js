@@ -320,15 +320,31 @@
     } catch { return ''; }
   }
 
+  // 关键词搜索条件：关键词 + 可选 since: / min_faves: 运算符，𝕏 服务端直接筛
+  function buildKeywordQuery(cfg) {
+    const parts = [cfg.keyword];
+    if (cfg.timeRange && cfg.timeRange !== 'any') {
+      const days = parseInt(cfg.timeRange, 10);
+      if (Number.isFinite(days) && days > 0) {
+        const d = new Date(Date.now() - days * 86400000);
+        parts.push('since:' + d.toISOString().slice(0, 10));
+      }
+    }
+    if (cfg.minFaves && cfg.minFaves > 0) parts.push('min_faves:' + cfg.minFaves);
+    return parts.join(' ');
+  }
+
   async function runKeywordPostFollow(cfg) {
     const me = myUsername();
     if (!me) { await logLine('没识别到当前账号，请先在 𝕏 页面停留几秒再试。'); return; }
+    const query = buildKeywordQuery(cfg);
+    const expectedF = cfg.sort === 'top' ? 'top' : 'live';
     const params = new URLSearchParams(location.search);
-    const onSearchLive = location.hostname === 'x.com' && location.pathname === '/search' && params.get('f') === 'live';
-    if (!onSearchLive) {
+    const onSearchPage = location.hostname === 'x.com' && location.pathname === '/search' && params.get('f') === expectedF && params.get('q') === query;
+    if (!onSearchPage) {
       await storeSet({ followFreePendingTask: { mode: 'keyword', cfg, ts: Date.now() } });
-      await logLine(`正在跳转到关键词「${cfg.keyword}」的最新帖子搜索页…`);
-      location.href = `https://x.com/search?q=${encodeURIComponent(cfg.keyword)}&src=typed_query&f=live`;
+      await logLine(`正在跳转到关键词「${cfg.keyword}」的${expectedF === 'top' ? '热门' : '最新'}帖子搜索页…`);
+      location.href = `https://x.com/search?q=${encodeURIComponent(query)}&src=typed_query&f=${expectedF}`;
       return;
     }
     const authors = new Map();
@@ -337,7 +353,11 @@
     let stall = 0;
     let lastCount = -1;
     await setProgress({ mode: 'keyword', phase: 'scanning', checked: 0, acted: 0, failed: 0, skipped: 0, list: [] });
-    await logLine(`开始按发帖关键词「${cfg.keyword}」扫描最新帖子（上限 ${cfg.scanLimit} 条）…`);
+    const filterDesc = [
+      cfg.timeRange && cfg.timeRange !== 'any' ? `${cfg.timeRange}天内` : '',
+      cfg.minFaves && cfg.minFaves > 0 ? `点赞≥${cfg.minFaves}` : '',
+    ].filter(Boolean).join('，');
+    await logLine(`开始按发帖关键词「${cfg.keyword}」扫描${expectedF === 'top' ? '热门' : '最新'}帖子（上限 ${cfg.scanLimit} 条${filterDesc ? `，筛选：${filterDesc}` : ''}）…`);
     while (scanned < cfg.scanLimit) {
       if (await checkStop()) break;
       const articles = document.querySelectorAll('article[data-testid="tweet"]');
@@ -426,7 +446,7 @@
     const me = myUsername();
     if (!me) { await logLine('没识别到当前账号，请先在 𝕏 页面停留几秒再试。'); return; }
     const searchUrl = `https://x.com/search?q=${encodeURIComponent(cfg.keyword)}&src=typed_query&f=user`;
-    if (!(location.hostname === 'x.com' && location.pathname === '/search' && new URLSearchParams(location.search).get('f') === 'user')) {
+    if (!(location.hostname === 'x.com' && location.pathname === '/search' && new URLSearchParams(location.search).get('f') === 'user' && new URLSearchParams(location.search).get('q') === cfg.keyword)) {
       await storeSet({ followFreePendingTask: { mode: 'keyword', cfg, ts: Date.now() } });
       await logLine(`正在跳转到关键词「${cfg.keyword}」的用户搜索页…`);
       location.href = searchUrl;
