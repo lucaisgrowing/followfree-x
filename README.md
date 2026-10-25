@@ -1,6 +1,6 @@
 # FollowFree 𝕏 — 𝕏 回关/取关助手
 
-[![Version](https://img.shields.io/badge/version-v1.0.10-gold.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v1.0.11-gold.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg)](LICENSE)
 
 一个免费、开源的 Chrome 扩展（Manifest V3），用来管理 𝕏（Twitter）的关注关系：批量回关粉丝、清理正在关注里未回关或无蓝 V 的账号、按关键词 / 话题关注发帖人。
@@ -43,7 +43,7 @@
 - 可选只关注已认证（蓝 V）账号；本轮最多关注数可调，同样受 15 次 / 15 分钟限流保护
 - 每个关注动作后用只读接口复核一次关系是否真的建立
 
-<img src="screenshots/keyword-panel-110.png" width="380" alt="FollowFree 𝕏 关键词关注面板（演示数据）">
+<img src="screenshots/keyword-panel-111.png" width="380" alt="FollowFree 𝕏 关键词关注面板（演示数据）">
 
 ### 节奏与防误操作
 
@@ -93,11 +93,21 @@
 
 改完代码后在 `chrome://extensions` 点扩展的刷新按钮即可生效。欢迎提 Issue 和 PR。
 
+## 使用条款
+
+使用本插件即表示你同意以下条款，其中第一条是核心：
+
+1. **风险自担**：自动化关注 / 取关可能触发 𝕏 限流、功能限制甚至封号；由此造成的任何账号损失与后果均由使用者自行承担，作者不承担任何责任。
+2. **用途**：本插件仅供个人学习与效率使用；请遵守 𝕏 平台规则与你所在地的法律法规。
+3. **数据**：所有操作均在你自己的浏览器与登录会话内完成，不经过作者的服务器；作者不收集、不存储任何账号、密码或个人数据。
+4. **按现状提供**：本插件免费、开源，按现状（AS IS）提供，不作任何明示或暗示的保证；𝕏 改版可能导致部分功能失效，恕不另行通知。
+5. **禁止滥用**：请勿将本插件用于批量骚扰、刷量、营销群发或其他违规用途；由此产生的后果由使用者承担。
+
 ## 版本说明
 
-当前版本：**v1.0.10**（2026-10-25）。
+当前版本：**v1.0.11**（2026-10-25）。
 
-v1.0.10 关键词关注标签加「新」角标。完整历史见 [CHANGELOG.md](CHANGELOG.md)。
+v1.0.11 插件面板与 README 同步新增使用条款。完整历史见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## License
 
