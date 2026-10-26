@@ -1,6 +1,6 @@
 # FollowFree 𝕏 — 𝕏 回关/取关助手
 
-[![Version](https://img.shields.io/badge/version-v1.0.12-gold.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v1.0.13-gold.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg)](LICENSE)
 
 一个免费、开源的 Chrome 扩展（Manifest V3），用来管理 𝕏（Twitter）的关注关系：批量回关粉丝、清理正在关注里未回关或无蓝 V 的账号、按关键词 / 话题关注发帖人。
@@ -43,7 +43,7 @@
 - 可选只关注已认证（蓝 V）账号；本轮最多关注数可调，同样受 15 次 / 15 分钟限流保护
 - 每个关注动作后用只读接口复核一次关系是否真的建立
 
-<img src="screenshots/keyword-panel-112.png" width="380" alt="FollowFree 𝕏 关键词关注面板（演示数据）">
+<img src="screenshots/keyword-panel-113.png" width="380" alt="FollowFree 𝕏 关键词关注面板（演示数据）">
 
 ### 节奏与防误操作
 
@@ -82,6 +82,7 @@
 - 自动化关注/取关存在平台规则风险，请自行控制频率与规模，风险自担
 - 关键词批量关注时，话题帖作者里可能混有营销号 / 僵尸号，建议先小量试跑、看日志确认质量后再放量
 - 任务运行在列表页的标签中，执行期间不要关闭那个标签页
+- 刚更新 / 重装扩展后，已打开的 𝕏 标签页里还没有新版插件脚本：点开始前请先按 F5 刷新一次 𝕏 页面（面板现在会先自动注入重试，实在进不去才会提示刷新）
 
 ## 开发
 
@@ -105,9 +106,9 @@
 
 ## 版本说明
 
-当前版本：**v1.0.12**（2026-10-26）。
+当前版本：**v1.0.13**（2026-10-26）。
 
-v1.0.12 面板新增「关于与更新」：打开面板自动查 GitHub 最新 Release，有新版给下载入口；另加 Star 邀请。完整历史见 [CHANGELOG.md](CHANGELOG.md)。
+v1.0.13 修复开始按钮误报「页面没加载好」：发消息失败时自动注入脚本重试。完整历史见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## License
 

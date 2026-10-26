@@ -19,10 +19,34 @@ async function activeXTab() {
   return chrome.tabs.create({ url: 'https://x.com/home' });
 }
 
+// 等标签页加载完成（新开的页、刚跳转的页都需要）
+async function waitForTabReady(tabId) {
+  for (let i = 0; i < 20; i++) {
+    try {
+      const t = await chrome.tabs.get(tabId);
+      if (t.status === 'complete') return;
+    } catch { return; }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+}
+
+// 发消息失败 = 页面里还没有插件脚本（刚更新/重装扩展后，已打开的标签页就是这样）：
+// 先自动注入一次再重发；注入也失败才让用户刷新页面
+async function sendToTab(tabId, msg) {
+  try {
+    return await chrome.tabs.sendMessage(tabId, msg);
+  } catch (firstErr) {
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
+    await new Promise((r) => setTimeout(r, 400));
+    return await chrome.tabs.sendMessage(tabId, msg);
+  }
+}
+
 async function refreshAccount() {
   try {
     const tab = await activeXTab();
-    const res = await chrome.tabs.sendMessage(tab.id, { type: 'FOLLOW_FREE_WHO_AM_I' });
+    await waitForTabReady(tab.id);
+    const res = await sendToTab(tab.id, { type: 'FOLLOW_FREE_WHO_AM_I' });
     $('account').textContent = res && res.username ? `当前账号：@${res.username}` : '已打开 X，但还没识别到账号（页面加载完再试）';
   } catch {
     $('account').textContent = '正在打开 X…稍等页面加载后重开面板';
@@ -76,10 +100,11 @@ async function start(mode) {
   const prev = (await chrome.storage.local.get('followFreeUiCfg')).followFreeUiCfg || {};
   await chrome.storage.local.set({ followFreeUiCfg: { ...prev, ...cfg, mode }, followFreeStopSignal: 0 });
   const tab = await activeXTab();
+  await waitForTabReady(tab.id);
   try {
-    await chrome.tabs.sendMessage(tab.id, { type: 'FOLLOW_FREE_START', mode, cfg });
+    await sendToTab(tab.id, { type: 'FOLLOW_FREE_START', mode, cfg });
   } catch {
-    alert('X 页面还没加载好，等页面出来后再点一次开始');
+    alert('插件脚本还没进 X 页面：请按 F5 刷新一次 X 页面，等页面完全加载后再点开始（刚更新/重装扩展后，已打开的标签页需要刷新一次）');
   }
 }
 
