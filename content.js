@@ -84,6 +84,17 @@
     if (!res.ok) return null;
     try { return await res.json(); } catch { return null; }
   }
+  // 发帖作者没有数字 ID：关注与关系查询都直接用用户名（1.1 接口支持 screen_name），不再依赖 users/show.json 换 ID
+  async function friendshipsCreateByName(username) {
+    const body = new URLSearchParams({ screen_name: username, follow: 'true' });
+    const res = await xFetch('friendships/create.json', { method: 'POST', body });
+    return parseXResponse(res);
+  }
+  async function friendshipsShowByNames(sourceName, targetName) {
+    const res = await xFetch(`friendships/show.json?source_screen_name=${encodeURIComponent(sourceName)}&target_screen_name=${encodeURIComponent(targetName)}`);
+    if (!res.ok) return null;
+    try { return await res.json(); } catch { return null; }
+  }
   async function parseXResponse(res) {
     let data = null;
     try { data = await res.json(); } catch { /* empty */ }
@@ -311,19 +322,13 @@
     return { username, verified };
   }
 
-  async function resolveUserId(username) {
-    const res = await xFetch(`users/show.json?screen_name=${encodeURIComponent(username)}`);
-    if (!res.ok) return '';
-    try {
-      const d = await res.json();
-      return d && d.id_str ? String(d.id_str) : '';
-    } catch { return ''; }
-  }
-
-  // 关键词搜索条件：关键词 + 可选 since: / min_faves: 运算符，𝕏 服务端直接筛
+  // 关键词搜索条件：关键词 + 可选 since: / until: / min_faves: 运算符，𝕏 服务端直接筛
   function buildKeywordQuery(cfg) {
     const parts = [cfg.keyword];
-    if (cfg.timeRange && cfg.timeRange !== 'any') {
+    if (cfg.timeRange === 'custom') {
+      if (cfg.customSince) parts.push('since:' + cfg.customSince);
+      if (cfg.customUntil) parts.push('until:' + cfg.customUntil);
+    } else if (cfg.timeRange && cfg.timeRange !== 'any') {
       const days = parseInt(cfg.timeRange, 10);
       if (Number.isFinite(days) && days > 0) {
         const d = new Date(Date.now() - days * 86400000);
@@ -354,7 +359,7 @@
     let lastCount = -1;
     await setProgress({ mode: 'keyword', phase: 'scanning', checked: 0, acted: 0, failed: 0, skipped: 0, list: [] });
     const filterDesc = [
-      cfg.timeRange && cfg.timeRange !== 'any' ? `${cfg.timeRange}天内` : '',
+      cfg.timeRange === 'custom' ? `自定义时间 ${cfg.customSince || '不限'}~${cfg.customUntil || '不限'}` : (cfg.timeRange && cfg.timeRange !== 'any' ? `${cfg.timeRange}天内` : ''),
       cfg.minFaves && cfg.minFaves > 0 ? `点赞≥${cfg.minFaves}` : '',
     ].filter(Boolean).join('，');
     await logLine(`开始按发帖关键词「${cfg.keyword}」扫描${expectedF === 'top' ? '热门' : '最新'}帖子（上限 ${cfg.scanLimit} 条${filterDesc ? `，筛选：${filterDesc}` : ''}）…`);
@@ -386,9 +391,9 @@
     }
     const { followFreeRecentUnfollows } = await storeGet('followFreeRecentUnfollows');
     const recentUnfollows = followFreeRecentUnfollows || {};
-    const myId = myUserId();
     const queue = [];
     let skipped = 0;
+    let showNulls = 0;
     for (const rec of authors.values()) {
       if (queue.length >= cfg.maxActions) break;
       if (rec.username.toLowerCase() === me.toLowerCase()) { skipped += 1; continue; }
@@ -399,17 +404,16 @@
         await logLine(`跳过 @${rec.username}（30 天内取关过，防反复横跳）`);
         continue;
       }
-      const userId = await resolveUserId(rec.username);
-      if (!userId) { skipped += 1; await logLine(`跳过 @${rec.username}（读不到用户 ID）`); continue; }
-      if (myId) {
-        const rel = await friendshipsShow(myId, userId);
-        if (rel && rel.relationship && rel.relationship.source && rel.relationship.source.following) {
-          skipped += 1;
-          continue;
-        }
+      // 关系查不到（接口无返回）不跳过，默认按未关注处理——避免一次接口问题导致全军覆没
+      const rel = await friendshipsShowByNames(me, rec.username);
+      if (!rel) { showNulls += 1; }
+      else if (rel.relationship && rel.relationship.source && rel.relationship.source.following) {
+        skipped += 1;
+        continue;
       }
-      queue.push({ ...rec, userId });
+      queue.push(rec);
     }
+    if (showNulls > 0) await logLine(`关系查询 ${showNulls} 次无返回，已按未关注处理`);
     await setProgress({ skipped: (progress.skipped || 0) + skipped });
     await logLine(`扫描完成：检查 ${scanned} 条帖子，去重作者 ${authors.size} 人，待关注 ${queue.length} 人。开始关注…`);
     await setProgress({ phase: 'acting' });
@@ -418,7 +422,7 @@
       if (acted >= cfg.maxActions) { await logLine(`已达本轮上限 ${cfg.maxActions} 人，停止。`); break; }
       if (await checkStop()) { await logLine('已手动停止。'); break; }
       if (!(await waitForWindowSlot('follow', cfg.maxPerWindow))) break;
-      const r = await friendshipsCreate(rec.userId);
+      const r = await friendshipsCreateByName(rec.username);
       if (!r.ok) {
         await setProgress({ failed: (progress.failed || 0) + 1 });
         await logLine(`关注 @${rec.username} 失败：${r.message}`);
@@ -427,10 +431,8 @@
       }
       await sleep(1500);
       let confirmed = true;
-      if (myId) {
-        const rel = await friendshipsShow(myId, rec.userId);
-        if (rel && rel.relationship && rel.relationship.source) confirmed = Boolean(rel.relationship.source.following);
-      }
+      const rel = await friendshipsShowByNames(me, rec.username);
+      if (rel && rel.relationship && rel.relationship.source) confirmed = Boolean(rel.relationship.source.following);
       acted += 1;
       await recordAction('follow');
       await setProgress({ acted, list: [...(progress.list || []), rec.username] });

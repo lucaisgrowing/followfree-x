@@ -1,6 +1,6 @@
 # FollowFree 𝕏 — 𝕏 回关/取关助手
 
-[![Version](https://img.shields.io/badge/version-v1.0.13-gold.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v1.0.14-gold.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg)](LICENSE)
 
 一个免费、开源的 Chrome 扩展（Manifest V3），用来管理 𝕏（Twitter）的关注关系：批量回关粉丝、清理正在关注里未回关或无蓝 V 的账号、按关键词 / 话题关注发帖人。
@@ -37,13 +37,13 @@
 ### 关键词关注 ![新](https://img.shields.io/badge/%E6%96%B0-e0245e)
 
 - 发帖作者（默认）：在 𝕏 搜索页按关键词 / 话题滚动采集发帖人并关注，比如填 #互关，关注发过互关帖的人；发帖人去重，关注前先查是否已关注
-- 发帖作者模式可按排序筛选：最新 / 热门；还可加时间范围（24 小时 / 7 天 / 30 天内）和最低点赞数门槛，一起拼成搜索条件由 𝕏 服务端筛
+- 发帖作者模式可按排序筛选：最新 / 热门；还可加时间范围（24 小时 / 7 天 / 30 天内，或自定义日期）和最低点赞数门槛，一起拼成搜索条件由 𝕏 服务端筛
 - 用户资料：在 𝕏 搜索「用户」页采集资料匹配的账号
 - 只关注当前未关注的账号
 - 可选只关注已认证（蓝 V）账号；本轮最多关注数可调，同样受 15 次 / 15 分钟限流保护
 - 每个关注动作后用只读接口复核一次关系是否真的建立
 
-<img src="screenshots/keyword-panel-113.png" width="380" alt="FollowFree 𝕏 关键词关注面板（演示数据）">
+<img src="screenshots/keyword-panel-114.png" width="380" alt="FollowFree 𝕏 关键词关注面板（演示数据）">
 
 ### 节奏与防误操作
 
@@ -106,9 +106,9 @@
 
 ## 版本说明
 
-当前版本：**v1.0.13**（2026-10-26）。
+当前版本：**v1.0.14**（2026-10-26）。
 
-v1.0.13 修复开始按钮误报「页面没加载好」：发消息失败时自动注入脚本重试。完整历史见 [CHANGELOG.md](CHANGELOG.md)。
+v1.0.14 发帖作者模式改用用户名直接关注（不再查用户 ID）、时间范围支持自定义日期。完整历史见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## License
 

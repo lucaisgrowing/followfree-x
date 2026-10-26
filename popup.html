@@ -9,7 +9,7 @@
   <div class="brand">
     <img class="brand-icon" src="icons/icon128.png" alt="X">
     <div class="brand-text">
-      <div class="title">FollowFree 𝕏 <span class="version" id="hero-version">v1.0.13</span></div>
+      <div class="title">FollowFree 𝕏 <span class="version" id="hero-version">v1.0.14</span></div>
       <div id="account" class="account">未检测到 X 页面…</div>
     </div>
   </div>
@@ -65,7 +65,11 @@
     <label class="seg-opt"><input id="k-sort-live" type="radio" name="k-sort" checked><span>最新</span></label>
     <label class="seg-opt"><input id="k-sort-top" type="radio" name="k-sort"><span>热门</span></label>
   </div>
-  <label class="row"><span>时间范围</span><select id="k-timeRange" style="width:190px;padding:6px 8px;border:1px solid #cfd4d9;border-radius:9px;font:inherit;background:#fbfbfb"><option value="any">不限</option><option value="1">24 小时内</option><option value="7" selected>7 天内</option><option value="30">30 天内</option></select></label>
+  <label class="row"><span>时间范围</span><select id="k-timeRange" style="width:190px;padding:6px 8px;border:1px solid #cfd4d9;border-radius:9px;font:inherit;background:#fbfbfb"><option value="any">不限</option><option value="1">24 小时内</option><option value="7" selected>7 天内</option><option value="30">30 天内</option><option value="custom">自定义日期…</option></select></label>
+  <div id="k-customDates" class="hidden">
+    <label class="row"><span>开始日期</span><input id="k-sinceDate" type="date" style="width:190px;text-align:left"></label>
+    <label class="row"><span>结束日期</span><input id="k-untilDate" type="date" style="width:190px;text-align:left"></label>
+  </div>
   <label class="row"><span>最低点赞数</span><input id="k-minFaves" type="number" min="0" max="1000000" value="0"></label>
   <label class="row"><span>本轮最多关注</span><input id="k-maxActions" type="number" min="1" max="100" value="15"></label>
   <label class="row"><span>间隔秒数</span><input id="k-interval" type="number" min="0" max="600" value="0"></label>
@@ -106,7 +110,7 @@
   <p><b>风险自担：</b>自动化关注 / 取关可能导致 𝕏 限流、功能限制甚至封号，由此造成的任何账号损失与后果均由使用者自行承担，作者不承担任何责任。本插件仅供个人使用，请遵守 𝕏 平台规则；所有操作均在你自己的浏览器内完成，作者不收集任何账号数据；插件按现状提供。</p>
 </details>
 
-<footer>FollowFree 𝕏 <span id="footer-version">v1.0.13</span> · MIT License<br>关注/取关各有 15 次 / 15 分钟限流保护</footer>
+<footer>FollowFree 𝕏 <span id="footer-version">v1.0.14</span> · MIT License<br>关注/取关各有 15 次 / 15 分钟限流保护</footer>
 <script src="popup.js"></script>
 </body>
 </html>

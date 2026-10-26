@@ -1,5 +1,8 @@
 const $ = (id) => document.getElementById(id);
 
+function toggleCustomDates() { $('k-customDates').classList.toggle('hidden', $('k-timeRange').value !== 'custom'); }
+$('k-timeRange').onchange = toggleCustomDates;
+
 function showTab(which) {
   $('tab-follow').classList.toggle('active', which === 'follow');
   $('tab-unfollow').classList.toggle('active', which === 'unfollow');
@@ -71,6 +74,8 @@ async function start(mode) {
         source: $('k-source-posts').checked ? 'posts' : 'users',
         sort: $('k-sort-top').checked ? 'top' : 'live',
         timeRange: $('k-timeRange').value,
+        customSince: $('k-sinceDate').value,
+        customUntil: $('k-untilDate').value,
         minFaves: Math.max(0, parseInt($('k-minFaves').value, 10) || 0),
         scanLimit: 200,
         maxActions: num('k-maxActions', 15),
@@ -201,6 +206,9 @@ async function renderProgress() {  const { followFreeProgress: p } = await chrom
       $('k-sort-live').checked = c.sort !== 'top';
     }
     if (c.timeRange) $('k-timeRange').value = c.timeRange;
+    if (c.customSince) $('k-sinceDate').value = c.customSince;
+    if (c.customUntil) $('k-untilDate').value = c.customUntil;
+    toggleCustomDates();
     if (typeof c.minFaves === 'number') $('k-minFaves').value = c.minFaves;
     if (c.mode === 'keyword' && typeof c.onlyVerified === 'boolean') $('k-onlyVerified').checked = c.onlyVerified;
   }
