@@ -119,5 +119,6 @@ button.danger {
 }
 footer { padding: 0 14px 13px; color: #929aa3; font-size: 11px; text-align: center; }
 .terms { margin: 0 12px 10px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.star-line { margin: 13px 0 2px; color: #2d3339; font-size: 12px; font-weight: 700; text-align: center; }
 .terms summary { color: #5d6873; font-size: 12px; font-weight: 700; cursor: pointer; }
 .terms p { margin: 7px 0 0; color: #7b838c; font-size: 11px; line-height: 1.6; }

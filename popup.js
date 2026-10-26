@@ -103,8 +103,46 @@ $('u-export').onclick = async () => {
   a.href = url; a.download = 'followfree-x-list.csv'; a.click();
 };
 
-async function renderProgress() {
-  const { followFreeProgress: p } = await chrome.storage.local.get('followFreeProgress');
+const REPO = 'lucaisgrowing/followfree-x';
+
+function cmpVer(a, b) {
+  const pa = a.split('.').map((x) => parseInt(x, 10) || 0);
+  const pb = b.split('.').map((x) => parseInt(x, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) {
+    if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0) ? 1 : -1;
+  }
+  return 0;
+}
+
+// 手动加载的本地扩展无法走商店静默升级：只联网查最新 Release，有新版就给下载页入口
+async function checkUpdate() {
+  const cur = chrome.runtime.getManifest().version;
+  $('cur-version').textContent = 'v' + cur;
+  $('upd-download').classList.add('hidden');
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const rel = await res.json();
+    const latest = (rel.tag_name || '').replace(/^v/, '');
+    if (!latest) throw new Error('no tag');
+    if (cmpVer(latest, cur) > 0) {
+      $('upd-status').textContent = `发现新版本 v${latest}`;
+      const btn = $('upd-download');
+      btn.textContent = `下载最新版 v${latest}`;
+      btn.classList.remove('hidden');
+      btn.onclick = () => chrome.tabs.create({ url: rel.html_url });
+    } else {
+      $('upd-status').textContent = '当前已是最新版本';
+    }
+  } catch {
+    $('upd-status').textContent = '检查失败，稍后再试';
+  }
+}
+
+$('upd-check').onclick = () => { $('upd-status').textContent = '正在检查更新…'; checkUpdate(); };
+$('star-btn').onclick = () => chrome.tabs.create({ url: `https://github.com/${REPO}` });
+
+async function renderProgress() {  const { followFreeProgress: p } = await chrome.storage.local.get('followFreeProgress');
   if (!p) return;
   $('st-checked').textContent = p.checked || 0;
   $('st-acted').textContent = p.acted || 0;
@@ -117,6 +155,9 @@ async function renderProgress() {
 }
 
 (async () => {
+  const ver = chrome.runtime.getManifest().version;
+  $('hero-version').textContent = 'v' + ver;
+  $('footer-version').textContent = 'v' + ver;
   const { followFreeUiCfg: c } = await chrome.storage.local.get('followFreeUiCfg');
   if (c) {
     if (c.whitelist) $('u-whitelist').value = c.whitelist.join('\n');
@@ -140,5 +181,6 @@ async function renderProgress() {
   }
   refreshAccount();
   renderProgress();
+  checkUpdate();
   setInterval(renderProgress, 700);
 })();
