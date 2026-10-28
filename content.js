@@ -10,6 +10,7 @@
     running: false,
     stopRequested: false,
     stopSignalSeen: 0,
+    notifWarned: false,
   };
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -94,6 +95,20 @@
     const res = await xFetch(`friendships/show.json?source_screen_name=${encodeURIComponent(sourceName)}&target_screen_name=${encodeURIComponent(targetName)}`);
     if (!res.ok) return null;
     try { return await res.json(); } catch { return null; }
+  }
+  // 关注会顺带打开对方的发帖通知（device 通知开关）：关注成功后立刻关掉，只关通知、
+  // 显式保留转帖可见（retweets=true），不改动时间线内容。失败不影响关注计数，每轮只提示一次。
+  async function disablePostNotifications(target) {
+    const body = new URLSearchParams({ device: 'false', retweets: 'true' });
+    if (target.userId) body.set('user_id', target.userId);
+    else body.set('screen_name', target.username);
+    const res = await xFetch('friendships/update.json', { method: 'POST', body });
+    const r = await parseXResponse(res);
+    if (!r.ok && !S.notifWarned) {
+      S.notifWarned = true;
+      await logLine(`发帖通知关闭接口无返回（${r.message}），本轮已关注的账号请手动在对方主页点铃铛关闭`);
+    }
+    return r.ok;
   }
   async function parseXResponse(res) {
     let data = null;
@@ -232,6 +247,7 @@
       }
       acted += 1;
       await recordAction('follow');
+      await disablePostNotifications({ userId: rec.userId });
       await setProgress({ acted, list: [...(progress.list || []), rec.username] });
       await logLine(confirmed ? `✅ 已回关 @${rec.username}（${acted}/${cfg.maxActions}）` : `⚠️ @${rec.username} 已发送但复核未确认，计入本轮防重复`);
       if (acted < cfg.maxActions) await sleep(actionDelayMs(cfg));
@@ -435,6 +451,7 @@
       if (rel && rel.relationship && rel.relationship.source) confirmed = Boolean(rel.relationship.source.following);
       acted += 1;
       await recordAction('follow');
+      await disablePostNotifications({ username: rec.username });
       await setProgress({ acted, list: [...(progress.list || []), rec.username] });
       await logLine(confirmed ? `✅ 已关注 @${rec.username}（${acted}/${cfg.maxActions}）` : `⚠️ @${rec.username} 已发送但复核未确认，计入本轮防重复`);
       if (acted < cfg.maxActions) await sleep(actionDelayMs(cfg));
@@ -499,6 +516,7 @@
       }
       acted += 1;
       await recordAction('follow');
+      await disablePostNotifications({ userId: rec.userId });
       await setProgress({ acted, list: [...(progress.list || []), rec.username] });
       await logLine(confirmed ? `✅ 已关注 @${rec.username}（${acted}/${cfg.maxActions}）` : `⚠️ @${rec.username} 已发送但复核未确认，计入本轮防重复`);
       if (acted < cfg.maxActions) await sleep(actionDelayMs(cfg));
@@ -511,6 +529,7 @@
     if (S.running) return;
     S.running = true;
     S.stopRequested = false;
+    S.notifWarned = false;
     const { followFreeStopSignal } = await storeGet('followFreeStopSignal');
     S.stopSignalSeen = followFreeStopSignal || 0;
     progress = { running: true, mode, phase: 'starting', checked: 0, acted: 0, failed: 0, skipped: 0, list: [], log: [] };
