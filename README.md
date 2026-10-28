@@ -1,6 +1,6 @@
 # FollowFree 𝕏 — 𝕏 回关/取关助手
 
-[![Version](https://img.shields.io/badge/version-v1.0.14-gold.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v1.0.15-gold.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg)](LICENSE)
 
 一个免费、开源的 Chrome 扩展（Manifest V3），用来管理 𝕏（Twitter）的关注关系：批量回关粉丝、清理正在关注里未回关或无蓝 V 的账号、按关键词 / 话题关注发帖人。
@@ -43,10 +43,11 @@
 - 可选只关注已认证（蓝 V）账号；本轮最多关注数可调，同样受 15 次 / 15 分钟限流保护
 - 每个关注动作后用只读接口复核一次关系是否真的建立
 
-<img src="screenshots/keyword-panel-114.png" width="380" alt="FollowFree 𝕏 关键词关注面板（演示数据）">
+<img src="screenshots/keyword-panel-115.png" width="380" alt="FollowFree 𝕏 关键词关注面板（演示数据）">
 
 ### 节奏与防误操作
 
+- 每次关注成功后自动关闭对方的发帖通知（只关通知铃铛，保留转帖可见），不再出现「关注完对方一发帖就弹提醒」；关闭失败不影响关注计数，每轮只提示一次
 - 关注、取关各有一条 **15 次 / 15 分钟** 的滑动窗口硬顶，达上限自动等待窗口滑出再继续
 - 动作间隔默认随机 5–8 秒，也可自定义固定秒数
 - 𝕏 返回限流（HTTP 429 或限流错误码）时立即结束本轮，不硬撞
@@ -106,9 +107,9 @@
 
 ## 版本说明
 
-当前版本：**v1.0.14**（2026-10-26）。
+当前版本：**v1.0.15**（2026-10-28）。
 
-v1.0.14 发帖作者模式改用用户名直接关注（不再查用户 ID）、时间范围支持自定义日期。完整历史见 [CHANGELOG.md](CHANGELOG.md)。
+v1.0.15 关注成功后自动关闭对方发帖通知。完整历史见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## License
 
