@@ -9,17 +9,18 @@
   <div class="brand">
     <img class="brand-icon" src="icons/icon128.png" alt="X">
     <div class="brand-text">
-      <div class="title">FollowFree 𝕏 <span class="version" id="hero-version">v1.0.15</span></div>
+      <div class="title">FollowFree 𝕏 <span class="version" id="hero-version">v1.0.16</span></div>
       <div id="account" class="account">未检测到 X 页面…</div>
     </div>
   </div>
-  <div class="hero-sub">回关粉丝 · 取关清理 · 关键词关注 · 本地运行</div>
+  <div class="hero-sub">回关粉丝 · 取关清理 · 关键词关注 · 通知清理 · 本地运行</div>
 </header>
 
 <nav class="tabs" aria-label="功能切换">
   <button id="tab-follow" class="tab active">回关粉丝</button>
   <button id="tab-unfollow" class="tab">取关清理</button>
   <button id="tab-keyword" class="tab">关键词关注<span class="badge-new">新</span></button>
+  <button id="tab-notify" class="tab">通知清理</button>
 </nav>
 
 <main>
@@ -78,6 +79,15 @@
   <button id="k-start" class="primary">开始关键词关注</button>
 </section>
 
+<section id="panel-notify" class="card hidden">
+  <div class="card-title">通知清理</div>
+  <label class="row"><span>扫描上限（人）</span><input id="n-scanLimit" type="number" min="1" max="2000" value="200"></label>
+  <label class="row"><span>本轮最多关闭</span><input id="n-maxActions" type="number" min="1" max="500" value="200"></label>
+  <label class="row"><span>间隔秒数</span><input id="n-interval" type="number" min="0" max="600" value="0"></label>
+  <div class="hint">扫你的正在关注列表，逐个检查发帖通知开关：已经关着的跳过，开着的关掉。不取关任何人，只关铃铛。每次关闭同样受 15 次 / 15 分钟限流保护，达上限自动等待窗口滑出。间隔填 0 时，每次动作随机等待 5–8 秒。</div>
+  <button id="n-start" class="primary">开始清理通知</button>
+</section>
+
 <section class="card status-card">
   <div class="status-head">
     <div class="card-title">任务进度</div>
@@ -110,7 +120,7 @@
   <p><b>风险自担：</b>自动化关注 / 取关可能导致 𝕏 限流、功能限制甚至封号，由此造成的任何账号损失与后果均由使用者自行承担，作者不承担任何责任。本插件仅供个人使用，请遵守 𝕏 平台规则；所有操作均在你自己的浏览器内完成，作者不收集任何账号数据；插件按现状提供。</p>
 </details>
 
-<footer>FollowFree 𝕏 <span id="footer-version">v1.0.15</span> · MIT License<br>关注/取关各有 15 次 / 15 分钟限流保护</footer>
+<footer>FollowFree 𝕏 <span id="footer-version">v1.0.16</span> · MIT License<br>关注 / 取关 / 通知清理各有 15 次 / 15 分钟限流保护</footer>
 <script src="popup.js"></script>
 </body>
 </html>

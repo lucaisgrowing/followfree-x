@@ -106,7 +106,7 @@
     const r = await parseXResponse(res);
     if (!r.ok && !S.notifWarned) {
       S.notifWarned = true;
-      await logLine(`发帖通知关闭接口无返回（${r.message}），本轮已关注的账号请手动在对方主页点铃铛关闭`);
+      await logLine(`发帖通知关闭接口无返回（${r.message}），受影响的账号请手动在对方主页点铃铛关闭`);
     }
     return r.ok;
   }
@@ -172,7 +172,7 @@
   async function waitForWindowSlot(kind, maxPerWindow) {
     while (true) {
       if (await checkStop()) return false;
-      const key = kind === 'follow' ? 'followFreeFollowWindow' : 'followFreeUnfollowWindow';
+      const key = { follow: 'followFreeFollowWindow', unfollow: 'followFreeUnfollowWindow', notify: 'followFreeNotifyWindow' }[kind] || 'followFreeUnfollowWindow';
       const data = await storeGet(key);
       const now = Date.now();
       const win = (data[key] || []).filter((t) => now - t < 15 * 60 * 1000);
@@ -183,7 +183,7 @@
     }
   }
   async function recordAction(kind) {
-    const key = kind === 'follow' ? 'followFreeFollowWindow' : 'followFreeUnfollowWindow';
+    const key = { follow: 'followFreeFollowWindow', unfollow: 'followFreeUnfollowWindow', notify: 'followFreeNotifyWindow' }[kind] || 'followFreeUnfollowWindow';
     const data = await storeGet(key);
     const win = [...(data[key] || []), Date.now()].filter((t) => Date.now() - t < 15 * 60 * 1000);
     await storeSet({ [key]: win });
@@ -525,6 +525,57 @@
     await logLine(`关键词关注结束：成功 ${acted}，失败 ${progress.failed || 0}，跳过 ${progress.skipped || 0}。`);
   }
 
+  // 批量关通知：扫正在关注列表，铃铛明确关着的跳过，开着（或状态读不到）的关掉；不取关任何人
+  async function runNotifyCleanup(cfg) {
+    const me = myUsername();
+    if (!me) { await logLine('没识别到当前账号，请先在 X 页面停留几秒再试。'); return; }
+    if (!location.pathname.endsWith('/following')) {
+      await storeSet({ followFreePendingTask: { mode: 'notify', cfg, ts: Date.now() } });
+      await logLine('正在跳转到你的正在关注列表…');
+      location.href = `https://x.com/${me}/following`;
+      return;
+    }
+    await setProgress({ mode: 'notify', phase: 'scanning', checked: 0, acted: 0, failed: 0, skipped: 0, list: [] });
+    await logLine(`开始扫描正在关注（上限 ${cfg.scanLimit} 人），逐个检查发帖通知开关…`);
+    const rows = await scanList({
+      limit: cfg.scanLimit,
+      onCandidate: async (rec, count) => { await setProgress({ checked: count }); },
+    });
+    await logLine(`扫描完成：检查 ${rows.length} 人，开始关通知…`);
+    await setProgress({ phase: 'acting' });
+    const myId = myUserId();
+    let acted = 0;
+    let alreadyOff = 0;
+    let failed = 0;
+    const failedNames = [];
+    for (const rec of rows) {
+      if (acted >= cfg.maxActions) { await logLine(`已达本轮上限 ${cfg.maxActions} 人，停止。`); break; }
+      if (await checkStop()) { await logLine('已手动停止。'); break; }
+      let rel = null;
+      if (myId && rec.userId) rel = await friendshipsShow(myId, rec.userId);
+      else rel = await friendshipsShowByNames(me, rec.username);
+      if (rel && rel.relationship && rel.relationship.source && rel.relationship.source.notifications_enabled === false) {
+        alreadyOff += 1;
+        await setProgress({ skipped: (progress.skipped || 0) + 1 });
+        continue;
+      }
+      if (!(await waitForWindowSlot('notify', cfg.maxPerWindow))) break;
+      const ok = await disablePostNotifications(rec.userId ? { userId: rec.userId } : { username: rec.username });
+      if (ok) {
+        acted += 1;
+        await recordAction('notify');
+        await setProgress({ acted, list: [...(progress.list || []), rec.username] });
+      } else {
+        failed += 1;
+        if (failedNames.length < 10) failedNames.push(rec.username);
+        await setProgress({ failed });
+      }
+      if (acted < cfg.maxActions) await sleep(actionDelayMs(cfg));
+    }
+    await setProgress({ phase: 'done', running: false });
+    await logLine(`通知清理结束：已关闭 ${acted} 人，本来就是关的 ${alreadyOff} 人，失败 ${failed} 人${failedNames.length ? `（如 @${failedNames.join('、@')}）` : ''}。`);
+  }
+
   async function startTask(mode, cfg) {
     if (S.running) return;
     S.running = true;
@@ -537,6 +588,7 @@
     try {
       if (mode === 'follow') await runFollowBack(cfg);
       else if (mode === 'keyword') await runKeywordFollow(cfg);
+      else if (mode === 'notify') await runNotifyCleanup(cfg);
       else await runUnfollow(cfg);
     } catch (e) {
       await logLine('任务异常停止：' + (e && e.message ? e.message : String(e)));

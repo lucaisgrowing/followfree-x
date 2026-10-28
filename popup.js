@@ -7,13 +7,16 @@ function showTab(which) {
   $('tab-follow').classList.toggle('active', which === 'follow');
   $('tab-unfollow').classList.toggle('active', which === 'unfollow');
   $('tab-keyword').classList.toggle('active', which === 'keyword');
+  $('tab-notify').classList.toggle('active', which === 'notify');
   $('panel-follow').classList.toggle('hidden', which !== 'follow');
   $('panel-unfollow').classList.toggle('hidden', which !== 'unfollow');
   $('panel-keyword').classList.toggle('hidden', which !== 'keyword');
+  $('panel-notify').classList.toggle('hidden', which !== 'notify');
 }
 $('tab-follow').onclick = () => showTab('follow');
 $('tab-unfollow').onclick = () => showTab('unfollow');
 $('tab-keyword').onclick = () => showTab('keyword');
+$('tab-notify').onclick = () => showTab('notify');
 
 async function activeXTab() {
   let tabs = await chrome.tabs.query({ active: true, currentWindow: true, url: ['https://x.com/*', 'https://twitter.com/*'] });
@@ -83,6 +86,13 @@ async function start(mode) {
         intervalSec: parseInt($('k-interval').value, 10) || 0,
         onlyVerified: $('k-onlyVerified').checked,
       }
+    : mode === 'notify'
+    ? {
+        scanLimit: Math.min(num('n-scanLimit', 200), 2000),
+        maxActions: num('n-maxActions', 200),
+        maxPerWindow: 15,
+        intervalSec: parseInt($('n-interval').value, 10) || 0,
+      }
     : {
         scanLimit: num('u-scanLimit', 200),
         maxActions: num('u-maxActions', 15),
@@ -116,6 +126,7 @@ async function start(mode) {
 $('f-start').onclick = () => start('follow');
 $('u-start').onclick = () => start('unfollow');
 $('k-start').onclick = () => start('keyword');
+$('n-start').onclick = () => start('notify');
 $('stop').onclick = async () => {
   await chrome.storage.local.set({ followFreeStopSignal: Date.now() });
 };
