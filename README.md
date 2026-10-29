@@ -1,9 +1,9 @@
 # FollowFree 𝕏 — 𝕏 回关/取关助手
 
-[![Version](https://img.shields.io/badge/version-v1.0.16-gold.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v1.0.17-gold.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg)](LICENSE)
 
-一个免费、开源的 Chrome 扩展（Manifest V3），用来管理 𝕏（Twitter）的关注关系：批量回关粉丝、清理正在关注里未回关或无蓝 V 的账号、按关键词 / 话题关注发帖人。
+**𝕏涨粉助手: 一键取关未回关的人、一键回关、关键词关注**
 
 所有任务都在你自己的浏览器和 𝕏 登录会话里完成，**没有后端服务器、没有账号绑定、没有统计上报**，数据只保存在本机。
 
@@ -50,7 +50,7 @@
 - 扫你的正在关注列表，逐个检查发帖通知开关：已经关着的跳过，开着的关掉；不取关任何人
 - 每次关闭同样受 15 次 / 15 分钟限流保护（独立窗口，不占关注 / 取关额度），达上限自动等待窗口滑出
 
-<img src="screenshots/notify-panel-116.png" width="380" alt="FollowFree 𝕏 通知清理面板（演示数据）">
+<img src="screenshots/notify-panel-117.png" width="380" alt="FollowFree 𝕏 通知清理面板（演示数据）">
 
 ### 节奏与防误操作
 
@@ -114,9 +114,9 @@
 
 ## 版本说明
 
-当前版本：**v1.0.16**（2026-10-28）。
+当前版本：**v1.0.17**（2026-10-29）。
 
-v1.0.16 新增通知清理：批量关掉已关注账号的发帖通知。完整历史见 [CHANGELOG.md](CHANGELOG.md)。
+v1.0.17 开头介绍改为「𝕏涨粉助手」一句话。完整历史见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## License
 

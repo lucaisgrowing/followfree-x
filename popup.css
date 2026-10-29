@@ -36,7 +36,7 @@ body {
   color: #171106; font-size: 11px; font-weight: 800;
 }
 .account { margin-top: 3px; color: #c8cdd2; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hero-sub { margin-top: 11px; color: #aeb5bc; font-size: 12px; }
+.hero-sub { margin-top: 11px; color: #aeb5bc; font-size: 12px; font-weight: 700; }
 .tabs {
   display: flex; gap: 4px; margin: 12px 12px 0; padding: 4px;
   background: #e8eaec; border-radius: 999px;
