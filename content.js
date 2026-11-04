@@ -55,44 +55,73 @@
     return false;
   }
 
-  function xFetch(path, options = {}) {
-    return fetch(`https://x.com/i/api/1.1/${path}`, {
-      credentials: 'include',
-      ...options,
-      headers: {
-        authorization: 'Bearer ' + X_WEB_BEARER,
-        'x-csrf-token': cookie('ct0'),
-        'x-twitter-auth-type': 'OAuth2Session',
-        'x-twitter-active-user': 'yes',
-        'content-type': 'application/x-www-form-urlencoded',
-        ...(options.headers || {}),
-      },
-    });
+  // 网络层失败（Failed to fetch 这类浏览器网络错误）自动重试 3 次再交出去：
+  // 以前这里是裸 fetch，抖一下就抛到任务最外层、整轮“异常停止”
+  async function xFetch(path, options = {}) {
+    let lastErr = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await fetch(`https://x.com/i/api/1.1/${path}`, {
+          credentials: 'include',
+          ...options,
+          headers: {
+            authorization: 'Bearer ' + X_WEB_BEARER,
+            'x-csrf-token': cookie('ct0'),
+            'x-twitter-auth-type': 'OAuth2Session',
+            'x-twitter-active-user': 'yes',
+            'content-type': 'application/x-www-form-urlencoded',
+            ...(options.headers || {}),
+          },
+        });
+      } catch (e) {
+        lastErr = e;
+        if (attempt < 2) await sleep(2000 * (attempt + 1));
+      }
+    }
+    throw lastErr;
   }
 
   async function friendshipsCreate(userId) {
     const body = new URLSearchParams({ user_id: userId, follow: 'true' });
-    const res = await xFetch('friendships/create.json', { method: 'POST', body });
-    return parseXResponse(res);
+    try {
+      const res = await xFetch('friendships/create.json', { method: 'POST', body });
+      return parseXResponse(res);
+    } catch (e) {
+      return { ok: false, message: '网络请求失败（已重试 3 次）：' + (e && e.message ? e.message : String(e)), rateLimited: false };
+    }
   }
   async function friendshipsDestroy(userId) {
     const body = new URLSearchParams({ user_id: userId });
-    const res = await xFetch('friendships/destroy.json', { method: 'POST', body });
-    return parseXResponse(res);
+    try {
+      const res = await xFetch('friendships/destroy.json', { method: 'POST', body });
+      return parseXResponse(res);
+    } catch (e) {
+      return { ok: false, message: '网络请求失败（已重试 3 次）：' + (e && e.message ? e.message : String(e)), rateLimited: false };
+    }
   }
   async function friendshipsShow(sourceId, targetId) {
-    const res = await xFetch(`friendships/show.json?source_id=${encodeURIComponent(sourceId)}&target_id=${encodeURIComponent(targetId)}`);
+    let res;
+    try {
+      res = await xFetch(`friendships/show.json?source_id=${encodeURIComponent(sourceId)}&target_id=${encodeURIComponent(targetId)}`);
+    } catch { return null; }
     if (!res.ok) return null;
     try { return await res.json(); } catch { return null; }
   }
   // 发帖作者没有数字 ID：关注与关系查询都直接用用户名（1.1 接口支持 screen_name），不再依赖 users/show.json 换 ID
   async function friendshipsCreateByName(username) {
     const body = new URLSearchParams({ screen_name: username, follow: 'true' });
-    const res = await xFetch('friendships/create.json', { method: 'POST', body });
-    return parseXResponse(res);
+    try {
+      const res = await xFetch('friendships/create.json', { method: 'POST', body });
+      return parseXResponse(res);
+    } catch (e) {
+      return { ok: false, message: '网络请求失败（已重试 3 次）：' + (e && e.message ? e.message : String(e)), rateLimited: false };
+    }
   }
   async function friendshipsShowByNames(sourceName, targetName) {
-    const res = await xFetch(`friendships/show.json?source_screen_name=${encodeURIComponent(sourceName)}&target_screen_name=${encodeURIComponent(targetName)}`);
+    let res;
+    try {
+      res = await xFetch(`friendships/show.json?source_screen_name=${encodeURIComponent(sourceName)}&target_screen_name=${encodeURIComponent(targetName)}`);
+    } catch { return null; }
     if (!res.ok) return null;
     try { return await res.json(); } catch { return null; }
   }
@@ -102,13 +131,21 @@
     const body = new URLSearchParams({ device: 'false', retweets: 'true' });
     if (target.userId) body.set('user_id', target.userId);
     else body.set('screen_name', target.username);
-    const res = await xFetch('friendships/update.json', { method: 'POST', body });
-    const r = await parseXResponse(res);
-    if (!r.ok && !S.notifWarned) {
-      S.notifWarned = true;
-      await logLine(`发帖通知关闭接口无返回（${r.message}），受影响的账号请手动在对方主页点铃铛关闭`);
+    try {
+      const res = await xFetch('friendships/update.json', { method: 'POST', body });
+      const r = await parseXResponse(res);
+      if (!r.ok && !S.notifWarned) {
+        S.notifWarned = true;
+        await logLine(`发帖通知关闭接口无返回（${r.message}），受影响的账号请手动在对方主页点铃铛关闭`);
+      }
+      return r.ok;
+    } catch (e) {
+      if (!S.notifWarned) {
+        S.notifWarned = true;
+        await logLine(`发帖通知关闭接口网络失败（已重试 3 次）：${e && e.message ? e.message : String(e)}，受影响的账号请手动在对方主页点铃铛关闭`);
+      }
+      return false;
     }
-    return r.ok;
   }
   async function parseXResponse(res) {
     let data = null;
@@ -422,6 +459,7 @@
       }
       // 关系查不到（接口无返回）不跳过，默认按未关注处理——避免一次接口问题导致全军覆没
       const rel = await friendshipsShowByNames(me, rec.username);
+      await sleep(300); // 逐个查关系时留一点间隔，别连珠炮式请求撞上连接重置
       if (!rel) { showNulls += 1; }
       else if (rel.relationship && rel.relationship.source && rel.relationship.source.following) {
         skipped += 1;
@@ -554,6 +592,7 @@
       let rel = null;
       if (myId && rec.userId) rel = await friendshipsShow(myId, rec.userId);
       else rel = await friendshipsShowByNames(me, rec.username);
+      await sleep(300);
       if (rel && rel.relationship && rel.relationship.source && rel.relationship.source.notifications_enabled === false) {
         alreadyOff += 1;
         await setProgress({ skipped: (progress.skipped || 0) + 1 });
