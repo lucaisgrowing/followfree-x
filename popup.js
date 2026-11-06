@@ -144,6 +144,25 @@ $('u-export').onclick = async () => {
   a.href = url; a.download = 'followfree-x-list.csv'; a.click();
 };
 
+async function loadBlocklist() {
+  const { followFreeBlocklist } = await chrome.storage.local.get('followFreeBlocklist');
+  const map = followFreeBlocklist || {};
+  $('bl-list').value = Object.keys(map).filter((k) => map[k] && map[k].blocked).sort().join('\n');
+}
+
+$('bl-save').onclick = async () => {
+  const { followFreeBlocklist } = await chrome.storage.local.get('followFreeBlocklist');
+  const old = followFreeBlocklist || {};
+  const names = $('bl-list').value.split('\n').map((s) => s.trim().replace(/^@/, '').toLowerCase()).filter(Boolean);
+  const next = {};
+  for (const n of new Set(names)) {
+    next[n] = old[n] || { f: 5, u: 5, blocked: true, blockedAt: Date.now(), manual: true };
+    next[n].blocked = true;
+  }
+  await chrome.storage.local.set({ followFreeBlocklist: next });
+  await loadBlocklist();
+};
+
 const REPO = 'lucaisgrowing/followfree-x';
 
 function cmpVer(a, b) {
@@ -225,6 +244,7 @@ async function renderProgress() {  const { followFreeProgress: p } = await chrom
   }
   refreshAccount();
   renderProgress();
+  loadBlocklist();
   checkUpdate();
   setInterval(renderProgress, 700);
 })();

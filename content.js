@@ -11,6 +11,7 @@
     stopRequested: false,
     stopSignalSeen: 0,
     notifWarned: false,
+    blocklist: {},
   };
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -230,6 +231,29 @@
     return 5000 + Math.floor(Math.random() * 3000); // 随机 5–8 秒
   }
 
+  // 永久拉黑：同一个账号关注和取关各满 5 次就不再碰他。计数只记本插件成功执行过的动作，
+  // 从 v1.0.19 开始算（之前没记过）。名单存在 chrome.storage.local，面板里可查看/手动编辑。
+  const BLOCK_THRESHOLD = 5;
+  function isBlocked(username) {
+    const e = S.blocklist[(username || '').toLowerCase()];
+    return !!(e && e.blocked);
+  }
+  async function recordHistory(username, field) {
+    const key = (username || '').toLowerCase();
+    if (!key) return;
+    const e = S.blocklist[key] || { f: 0, u: 0 };
+    e[field] += 1;
+    if (!e.blocked && e.f >= BLOCK_THRESHOLD && e.u >= BLOCK_THRESHOLD) {
+      e.blocked = true;
+      e.blockedAt = Date.now();
+      await logLine(`@${username} 关注/取关各满 ${BLOCK_THRESHOLD} 次，已永久拉黑，之后不再回关/关注`);
+    }
+    S.blocklist[key] = e;
+    await storeSet({ followFreeBlocklist: S.blocklist });
+  }
+  async function recordFollowHistory(username) { await recordHistory(username, 'f'); }
+  async function recordUnfollowHistory(username) { await recordHistory(username, 'u'); }
+
   async function runFollowBack(cfg) {
     const me = myUsername();
     if (!me) { await logLine('没识别到当前账号，请先在 X 页面停留几秒再试。'); return; }
@@ -243,12 +267,14 @@
     const { followFreeRecentUnfollows } = await storeGet('followFreeRecentUnfollows');
     const recentUnfollows = followFreeRecentUnfollows || {};
     const queue = [];
+    let blockedSkips = 0;
     await setProgress({ mode: 'follow', phase: 'scanning', checked: 0, acted: 0, failed: 0, skipped: 0, list: [] });
     await logLine(`开始扫描 ${cfg.onlyVerified ? '已认证粉丝' : '粉丝'}（上限 ${cfg.scanLimit} 人）…`);
     await scanList({
       limit: cfg.scanLimit,
       onCandidate: async (rec, count) => {
         await setProgress({ checked: count });
+        if (isBlocked(rec.username)) { blockedSkips += 1; await setProgress({ skipped: (progress.skipped || 0) + 1 }); return; }
         if (rec.state !== 'not-following') { await setProgress({ skipped: (progress.skipped || 0) + 1 }); return; }
         if (!rec.userId) { await setProgress({ skipped: (progress.skipped || 0) + 1 }); return; }
         const unfTs = recentUnfollows[rec.username.toLowerCase()];
@@ -260,7 +286,7 @@
         queue.push(rec);
       },
     });
-    await logLine(`扫描完成：检查 ${progress.checked} 人，待回关 ${queue.length} 人。开始回关…`);
+    await logLine(`扫描完成：检查 ${progress.checked} 人，待回关 ${queue.length} 人${blockedSkips ? `，永久拉黑跳过 ${blockedSkips} 人` : ''}。开始回关…`);
     await setProgress({ phase: 'acting' });
     const myId = myUserId();
     let acted = 0;
@@ -284,6 +310,7 @@
       }
       acted += 1;
       await recordAction('follow');
+      await recordFollowHistory(rec.username);
       await disablePostNotifications({ userId: rec.userId });
       await setProgress({ acted, list: [...(progress.list || []), rec.username] });
       await logLine(confirmed ? `✅ 已回关 @${rec.username}（${acted}/${cfg.maxActions}）` : `⚠️ @${rec.username} 已发送但复核未确认，计入本轮防重复`);
@@ -351,6 +378,7 @@
       acted += 1;
       recentUnfollows[rec.username.toLowerCase()] = Date.now();
       await recordAction('unfollow');
+      await recordUnfollowHistory(rec.username);
       await setProgress({ acted, list: [...(progress.list || []), rec.username] });
       await logLine(`✅ 已取关 @${rec.username}（${rec.reason}，${acted}/${cfg.maxActions}）`);
       if (acted < cfg.maxActions) await sleep(actionDelayMs(cfg));
@@ -447,8 +475,10 @@
     const queue = [];
     let skipped = 0;
     let showNulls = 0;
+    let blockedSkips = 0;
     for (const rec of authors.values()) {
       if (queue.length >= cfg.maxActions) break;
+      if (isBlocked(rec.username)) { skipped += 1; blockedSkips += 1; continue; }
       if (rec.username.toLowerCase() === me.toLowerCase()) { skipped += 1; continue; }
       if (cfg.onlyVerified && !rec.verified) { skipped += 1; continue; }
       const unfTs = recentUnfollows[rec.username.toLowerCase()];
@@ -469,7 +499,7 @@
     }
     if (showNulls > 0) await logLine(`关系查询 ${showNulls} 次无返回，已按未关注处理`);
     await setProgress({ skipped: (progress.skipped || 0) + skipped });
-    await logLine(`扫描完成：检查 ${scanned} 条帖子，去重作者 ${authors.size} 人，待关注 ${queue.length} 人。开始关注…`);
+    await logLine(`扫描完成：检查 ${scanned} 条帖子，去重作者 ${authors.size} 人，待关注 ${queue.length} 人${blockedSkips ? `，永久拉黑跳过 ${blockedSkips} 人` : ''}。开始关注…`);
     await setProgress({ phase: 'acting' });
     let acted = 0;
     for (const rec of queue) {
@@ -489,6 +519,7 @@
       if (rel && rel.relationship && rel.relationship.source) confirmed = Boolean(rel.relationship.source.following);
       acted += 1;
       await recordAction('follow');
+      await recordFollowHistory(rec.username);
       await disablePostNotifications({ username: rec.username });
       await setProgress({ acted, list: [...(progress.list || []), rec.username] });
       await logLine(confirmed ? `✅ 已关注 @${rec.username}（${acted}/${cfg.maxActions}）` : `⚠️ @${rec.username} 已发送但复核未确认，计入本轮防重复`);
@@ -512,12 +543,14 @@
     const { followFreeRecentUnfollows } = await storeGet('followFreeRecentUnfollows');
     const recentUnfollows = followFreeRecentUnfollows || {};
     const queue = [];
+    let blockedSkips = 0;
     await setProgress({ mode: 'keyword', phase: 'scanning', checked: 0, acted: 0, failed: 0, skipped: 0, list: [] });
     await logLine(`开始按关键词「${cfg.keyword}」扫描用户搜索页（上限 ${cfg.scanLimit} 人）…`);
     await scanList({
       limit: cfg.scanLimit,
       onCandidate: async (rec, count) => {
         await setProgress({ checked: count });
+        if (isBlocked(rec.username)) { blockedSkips += 1; await setProgress({ skipped: (progress.skipped || 0) + 1 }); return; }
         if (rec.username.toLowerCase() === me.toLowerCase()) { await setProgress({ skipped: (progress.skipped || 0) + 1 }); return; }
         if (rec.state !== 'not-following') { await setProgress({ skipped: (progress.skipped || 0) + 1 }); return; }
         if (!rec.userId) { await setProgress({ skipped: (progress.skipped || 0) + 1 }); return; }
@@ -531,7 +564,7 @@
         queue.push(rec);
       },
     });
-    await logLine(`扫描完成：检查 ${progress.checked} 人，待关注 ${queue.length} 人。开始关注…`);
+    await logLine(`扫描完成：检查 ${progress.checked} 人，待关注 ${queue.length} 人${blockedSkips ? `，永久拉黑跳过 ${blockedSkips} 人` : ''}。开始关注…`);
     await setProgress({ phase: 'acting' });
     const myId = myUserId();
     let acted = 0;
@@ -554,6 +587,7 @@
       }
       acted += 1;
       await recordAction('follow');
+      await recordFollowHistory(rec.username);
       await disablePostNotifications({ userId: rec.userId });
       await setProgress({ acted, list: [...(progress.list || []), rec.username] });
       await logLine(confirmed ? `✅ 已关注 @${rec.username}（${acted}/${cfg.maxActions}）` : `⚠️ @${rec.username} 已发送但复核未确认，计入本轮防重复`);
@@ -620,6 +654,8 @@
     S.running = true;
     S.stopRequested = false;
     S.notifWarned = false;
+    const { followFreeBlocklist } = await storeGet('followFreeBlocklist');
+    S.blocklist = followFreeBlocklist || {};
     const { followFreeStopSignal } = await storeGet('followFreeStopSignal');
     S.stopSignalSeen = followFreeStopSignal || 0;
     progress = { running: true, mode, phase: 'starting', checked: 0, acted: 0, failed: 0, skipped: 0, list: [], log: [] };

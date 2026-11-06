@@ -9,7 +9,7 @@
   <div class="brand">
     <img class="brand-icon" src="icons/icon128.png" alt="X">
     <div class="brand-text">
-      <div class="title">FollowFree 𝕏 <span class="version" id="hero-version">v1.0.18</span></div>
+      <div class="title">FollowFree 𝕏 <span class="version" id="hero-version">v1.0.19</span></div>
       <div id="account" class="account">未检测到 X 页面…</div>
     </div>
   </div>
@@ -88,6 +88,13 @@
   <button id="n-start" class="primary">开始清理通知</button>
 </section>
 
+<section class="card">
+  <div class="card-title">永久拉黑名单</div>
+  <div class="hint">同一个账号关注和取关各满 5 次，会自动进来，之后回关、关键词关注都跳过他，哪怕他先关注了你也不回关。下面可以手动加人或删人（删掉就是解除拉黑，下次任务起生效）。</div>
+  <label class="block"><span>已拉黑（每行一个用户名）</span><textarea id="bl-list" rows="3" placeholder="暂无"></textarea></label>
+  <button id="bl-save" class="ghost">保存拉黑名单</button>
+</section>
+
 <section class="card status-card">
   <div class="status-head">
     <div class="card-title">任务进度</div>
@@ -120,7 +127,7 @@
   <p><b>风险自担：</b>自动化关注 / 取关可能导致 𝕏 限流、功能限制甚至封号，由此造成的任何账号损失与后果均由使用者自行承担，作者不承担任何责任。本插件仅供个人使用，请遵守 𝕏 平台规则；所有操作均在你自己的浏览器内完成，作者不收集任何账号数据；插件按现状提供。</p>
 </details>
 
-<footer>FollowFree 𝕏 <span id="footer-version">v1.0.18</span> · MIT License<br>关注 / 取关 / 通知清理各有 15 次 / 15 分钟限流保护</footer>
+<footer>FollowFree 𝕏 <span id="footer-version">v1.0.19</span> · MIT License<br>关注 / 取关 / 通知清理各有 15 次 / 15 分钟限流保护</footer>
 <script src="popup.js"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 # FollowFree 𝕏 — 𝕏 回关/取关助手
 
-[![Version](https://img.shields.io/badge/version-v1.0.18-gold.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v1.0.19-gold.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg)](LICENSE)
 
 **𝕏涨粉助手: 一键取关未回关的人、一键回关、关键词关注**
@@ -51,6 +51,12 @@
 - 每次关闭同样受 15 次 / 15 分钟限流保护（独立窗口，不占关注 / 取关额度），达上限自动等待窗口滑出
 
 <img src="screenshots/notify-panel-117.png" width="380" alt="FollowFree 𝕏 通知清理面板（演示数据）">
+
+### 永久拉黑
+
+- 同一个账号关注和取关各满 5 次，自动进永久拉黑：之后回关、关键词关注都跳过他，哪怕他先关注了你也不回关
+- 拉黑名单在面板里可以查看、手动加人或删人（删掉就是解除拉黑，下次任务起生效）
+- 计数从 v1.0.19 开始算，之前那几次没记过，不算数
 
 ### 节奏与防误操作
 
@@ -115,9 +121,9 @@
 
 ## 版本说明
 
-当前版本：**v1.0.18**（2026-11-04）。
+当前版本：**v1.0.19**（2026-11-06）。
 
-v1.0.18 接口网络失败自动重试，单点失败不再掀整轮。完整历史见 [CHANGELOG.md](CHANGELOG.md)。
+v1.0.19 新增永久拉黑：关注/取关各满 5 次自动拉黑。完整历史见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## License
 
